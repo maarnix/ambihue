@@ -5,6 +5,7 @@ import time
 from typing import Any, Dict
 
 import httpx
++from httpx import DigestAuth
 import urllib3
 
 logger = logging.getLogger(__name__)
@@ -14,25 +15,23 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
 class AmbilightTV:
-
     def __init__(self, config: Dict[str, Any]) -> None:
-        self._client = httpx.Client(verify=False, http2=True)
-
-        self._protocol = config.get("protocol", "https://")
-        self._ip = config["ip"]
-        self._port = config.get("port", "1926")
-        self._api_version = config.get("api_version", "6")
-
-        # https://jointspace.sourceforge.net/projectdata/documentation/jasonApi/1/doc/API-Method-ambilight-processed-GET.html
-        # https://github.com/eslavnov/pylips/blob/master/docs/Home.md
-        self._path = config.get("path", "ambilight/processed")
-
-        self._full_path = (
-            f"{self._protocol}{self._ip}:{self._port}/{self._api_version}/{self._path}"
-        )
-
-        self._wait_for_startup_s = config.get("wait_for_startup_s", 8)
-        self.power_on_time_s = config.get("power_on_time_s", 8)
++        # Credentials for JointSpace v6 API
++        self._user = config.get("user")
++        self._password = config.get("password")
++
++        auth = None
++        if self._user and self._password:
++            auth = DigestAuth(self._user, self._password)
++
++        # HTTP client with optional DigestAuth
++        self._client = httpx.Client(verify=False, http2=True, auth=auth)
++
++        # Connection / API parameters
++        self._protocol = config.get("protocol", "https://")
++        self._ip = config["ip"]
++        self._port = config.get("port", "1926")
++        self._api_version = config.get("api_version", "6")
 
     def wait_for_startup(self) -> None:
         _was_enabled = True
