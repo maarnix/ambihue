@@ -56,11 +56,21 @@ classDiagram
 ### Setup Ambilight TV
 
 1. Setup IP, protocol, prot and API version.
+2. In case of problem use [`pylips` config discover feature](https://github.com/eslavnov/pylips/tree/master?tab=readme-ov-file#new-users)
+3. If needed for Android TVs, add user and password to the userconfig.yaml file
+   ```yaml
+   ambilight_tv:
+     protocol: "https://" # "http://" or "https://"
+     ip: "[TV IP ADDRESS]" # IP address of the TV
+     port: 1926 # 1925 for APIv5, 1926->APIv6? or 1925->HTTP, 1926->HTTPS?
+     api_version: 6 # API version of the TV: 1, 5 or 6
+     path: "ambilight/processed" # leave default. see code in `ambilight_tv.py`
+     wait_for_startup_s: 29 # Timeout for pinging device before reporting an error
+     power_on_time_s: 8 # Timeout to FINISH TV booting before sending commands
+     user: "[USER-FROM-PYLIPS]"
+     password: "[PASS-FROM-PYLIPS]"
 
-1. In case of problem use [`pylips` config discover feature](https://github.com/eslavnov/pylips/tree/master?tab=readme-ov-file#new-users)
-
-1. Verify connection by calling ambihue
-
+4. Verify connection by calling ambihue.py
     ```bash
     ./ambihue.py --verify tv --loglevel DEBUG
     ```
@@ -78,24 +88,34 @@ classDiagram
    More information on [`hue-entertainment-pykit` repository readme.](https://github.com/hrdasdominik/hue-entertainment-pykit?tab=readme-ov-file#discovery-optional)
 
 1. Use printed values to fill config `hue_entertainment_group` config data
-1. Verify connection by calling ambihue
-
+```yaml
+hue_entertainment_group:
+  _identification: "[...]"
+  _rid: "[...]"
+  _ip_address: "[YOUR BRIDGE IP]"
+  _swversion: [...]
+  _username: "[...]"
+  _hue_app_id: "[...]"
+  _client_key: "[...]"
+  _name: "[...]"
+  index: 0 # Your Entertainment Area selection by index - manual adjustment
+```
+2. Verify connection by calling ambihue
     ```bash
     ./ambihue.py --verify hue --loglevel DEBUG
     ```
-
-   One of your lights should be red now.
+   The id=0 light in your entertainment zone should be red now.
 
 ### Setup Light Position
 
 1. Add light configuration:
 
     ```yaml
-    your_light_name:
-        id: 2  # light number from Hue Entertainment - manual adjustment
-        positions: [5,6,7]  # indexes of color positions used to calculate the average color
+    lights_setup:
+      A_name: "your name"
+      A_id: 0 # light number in your entertainment area (not the id in your full hue setup)
+      A_positions: [0, 1]# indexes of color positions used to calculate the average color
     ```
-
     Positions index `[1-16]` table:
 
     ```text
@@ -106,25 +126,30 @@ classDiagram
     [0] 0Left  ↑                                               ↓ [16] 3Right
     ```
 
-    Example of config:
+    Example of config for two up and down lights on a wall. NOTE: the id's below are within the Entertainment Area and not the id's of the lights in your full Hue setup
 
     ```yaml
     lights_setup:
-        left:
-            id: 3
-            positions: [2, 3, 4]
-        right:
-            id: 2
-            positions: [12]
+      A_name: "wall_left_down"
+      A_id: 0
+      A_positions: [0, 1, 3]
+      B_name: "wall_left_up"
+      B_id: 1
+      B_positions: [2, 4, 5]
+      C_name: "wall_right_up"
+      C_id: 2
+      C_positions: [8, 9, 11]
+      D_name: "wall_right_down"
+      D_id: 3
+      D_positions: [10, 12, 13]
     ```
-
-1. Use [this video to test colors](https://youtu.be/8u4UzzJZAUg?t=66)
-1. To verify  config run ambihue
+    
+2. Use [this video to test colors](https://youtu.be/8u4UzzJZAUg?t=66)
+3. To verify config run ambihue
 
     ```bash
     ./ambihue.py --loglevel DEBUG
     ```
-
 ## Home Assistance Usage
 
 ### Via UI
