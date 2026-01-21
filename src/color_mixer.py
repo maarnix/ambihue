@@ -57,6 +57,23 @@ class ColorMixer:
         color.blue //= len(positions)
         return color
 
+    def is_all_black(self, threshold: int = 15) -> bool:
+        """Check if all colors are below the threshold (essentially black).
+
+        Args:
+            threshold: Maximum RGB value to consider as black (default: 15)
+
+        Returns:
+            True if all colors are below threshold, False otherwise
+        """
+        if not self._colors:
+            return True
+
+        return all(
+            color.red <= threshold and color.green <= threshold and color.blue <= threshold
+            for color in self._colors
+        )
+
     def print_colors(self) -> None:
         """Print the colors in a formatted way."""
         assert self._colors, "Colors have not been set yet."

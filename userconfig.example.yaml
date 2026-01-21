@@ -23,6 +23,12 @@ ambilight_tv:
   # runtime_error_threshold: 0    # Never exit on TV offline
 
   power_on_time_s: 8              # Grace period for TV boot (both modes)
+  refresh_rate_ms: 10             # How often to poll TV and update lights when syncing (in ms)
+                                  # Lower = more responsive, higher = less CPU/network usage
+                                  # Recommended: 10-50ms for smooth updates, 100-500ms to reduce logs
+  idle_refresh_rate_ms: 1000      # How often to poll TV when in idle mode (screen black/off)
+                                  # Higher values save CPU/network when TV is off
+                                  # Recommended: 1000-5000ms (1-5 seconds)
 
 hue_entertainment_group:
   # SEE README.md for more details

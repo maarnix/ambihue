@@ -21,6 +21,8 @@ options:
     wait_for_startup_s: 29
     power_on_time_s: 8
     runtime_error_threshold: 10
+    refresh_rate_ms: 10
+    idle_refresh_rate_ms: 1000
   hue_entertainment_group:
     _identification: "replace_me"
     _rid: "replace_me"
@@ -45,6 +47,8 @@ schema:
     wait_for_startup_s: "int"
     power_on_time_s: "int"
     runtime_error_threshold: "int"
+    refresh_rate_ms: "int"
+    idle_refresh_rate_ms: "int"
   hue_entertainment_group:
     _identification: "str"
     _rid: "str"
