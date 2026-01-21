@@ -28,6 +28,11 @@ class AmbiHueMain:
         self._light_setup = self._config_loader.get_lights_setup()
 
         self._tv_error_cnt = 0
+        self._tv_is_online = True  # Track TV state
+
+        # Get runtime error threshold from config
+        tv_config = self._config_loader.get_ambilight_tv()
+        self._runtime_error_threshold = tv_config.get("runtime_error_threshold", 10)
 
         self._previous_time = time.time()
 
@@ -41,22 +46,31 @@ class AmbiHueMain:
         """
         try:
             tv_data = self._tv.get_ambilight_json()
+
+            # TV came back online
+            if not self._tv_is_online:
+                logger.info("TV connection restored!")
+                self._tv_is_online = True
+
             self._tv_error_cnt = 0  # reset error count on success
             return tv_data
 
-        except JSONDecodeError as err:
+        except (JSONDecodeError, RuntimeError) as err:
             self._tv_error_cnt += 1
-            logger.error(f"Decoding JSON error: {err}")
 
-        except RuntimeError as err:
-            self._tv_error_cnt += 1
-            logger.error(f"Request error: {err}")
+            # Log only on state transition
+            if self._tv_is_online:
+                logger.warning(f"TV connection lost: {err}")
+                self._tv_is_online = False
+            elif self._tv_error_cnt % 100 == 0:
+                # Log every ~1 second during extended offline period
+                logger.debug(f"TV still offline (error count: {self._tv_error_cnt})")
 
-        # Error handling for TV data
-        if self._tv_error_cnt > 10:
-            self._exit(10)  # exit if TV is not reachable for too long
+            # Exit if threshold is set and reached
+            if self._runtime_error_threshold > 0 and self._tv_error_cnt > self._runtime_error_threshold:
+                self._exit(10)
 
-        return None  # return None if an error occurs
+            return None  # return None if an error occurs
 
     def _debug_log_time(self, msg: str) -> None:
         if logger.getEffectiveLevel() > logging.DEBUG:

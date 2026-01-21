@@ -2,6 +2,25 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.3.0] - 2025-01-21
+
+### Added
+- **Automation Mode**: Add-on can now wait indefinitely for TV and never exit on connection loss
+- New `runtime_error_threshold` configuration parameter (0 = never exit, >0 = exit after N errors)
+- Support for `wait_for_startup_s: 0` to wait indefinitely for TV at startup
+- TV state tracking with connection lost/restored logging
+- Comprehensive Home Assistant automation documentation in DOCS.md
+- Two operation modes: Polling Mode (default) and Automation Mode (for HA integration)
+
+### Changed
+- Improved logging: Log TV state transitions instead of every error
+- Reduced log spam: Log waiting messages every 5 minutes instead of continuously
+- Poll every 5 seconds when waiting for TV (reduced from continuous polling)
+- Enhanced error handling with state-aware logging
+
+### Fixed
+- Removed corrupted + characters from source files (cleanup from bad merge)
+
 ## [1.2.0] - 2025-01-XX
 
 ### Added

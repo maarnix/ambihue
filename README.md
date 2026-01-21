@@ -165,6 +165,13 @@ hue_entertainment_group:
 
 1. Copy `userconfig.yaml` from setup stage
 
+### Automation with TV State
+
+AmbiHue supports automatic start/stop based on your TV's power state. See [DOCS.md](DOCS.md#automation-with-home-assistant-tv-state) for:
+- Configuration modes (Polling vs Automation)
+- Setting up Home Assistant automations to control the add-on
+- How to make the add-on start when TV turns on and stop when TV turns off
+
 
 ### For Developers
 

@@ -134,6 +134,91 @@ When verifying the Hue connection, the first light (id=0) in your Entertainment 
 2. Watch the add-on logs to see real-time color updates and any errors
 3. Adjust the `lights_setup` positions if colors don't match your expectations
 
+## Automation with Home Assistant TV State
+
+AmbiHue can automatically start when your TV turns on and stop when it turns off using Home Assistant automations.
+
+### Configuration Modes
+
+The add-on supports two operating modes controlled by timeout settings:
+
+**Polling Mode (Default - wait_for_startup_s=29, runtime_error_threshold=10):**
+- Add-on exits if TV not found within timeout
+- Works without HA automations
+- Best for simple setups
+
+**Automation Mode (wait_for_startup_s=0, runtime_error_threshold=0):**
+- Add-on waits indefinitely for TV and never exits
+- Requires HA automations to start/stop based on TV state
+- More efficient as HA controls lifecycle
+- Best for advanced users with precise TV state control
+
+### Setting Up Automation Mode
+
+**Step 1: Configure the add-on for automation mode**
+
+In the add-on configuration, set both timeout values to 0:
+
+```yaml
+ambilight_tv:
+  protocol: "https://"
+  ip: "192.168.1.100"
+  port: "1926"
+  api_version: "6"
+  path: "ambilight/processed"
+  wait_for_startup_s: 0         # Wait indefinitely
+  runtime_error_threshold: 0    # Never exit on errors
+  power_on_time_s: 8
+```
+
+**Step 2: Create Home Assistant Automations**
+
+Your TV must be integrated in Home Assistant with a power state entity (e.g., `media_player.philips_tv`). Check that your TV shows as "on" or "off" in Home Assistant.
+
+**Start AmbiHue when TV turns on:**
+
+```yaml
+automation:
+  - alias: "Start AmbiHue when TV turns on"
+    trigger:
+      - platform: state
+        entity_id: media_player.philips_tv
+        to: "on"
+    action:
+      - service: hassio.addon_start
+        data:
+          addon: ambihue
+```
+
+**Stop AmbiHue when TV turns off:**
+
+```yaml
+automation:
+  - alias: "Stop AmbiHue when TV turns off"
+    trigger:
+      - platform: state
+        entity_id: media_player.philips_tv
+        to: "off"
+    action:
+      - service: hassio.addon_stop
+        data:
+          addon: ambihue
+```
+
+**Via UI:**
+1. Go to Settings → Automations & Scenes → Create Automation
+2. Trigger: State of your TV entity changes to "on"
+3. Action: Call service `hassio.addon_start` with addon `ambihue`
+4. Repeat for "off" state with `hassio.addon_stop`
+
+### Resilient Operation
+
+When using automation mode (or any configuration):
+- If the TV turns off during operation, AmbiHue pauses light updates
+- When the TV turns back on, syncing resumes automatically
+- The add-on logs state transitions for monitoring
+- In automation mode, the add-on continues running even if TV is offline
+
 ## Troubleshooting
 
 ### TV Connection Issues

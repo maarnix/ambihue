@@ -1,13 +1,28 @@
 ---
 ambilight_tv:
-  # SEE README.md for more details
+  # SEE README.md and DOCS.md for more details
   protocol: "https://" # "http://" or "https://"
   ip: replace_me # IP address of the TV
   port: "1926" # 1925 for APIv5, 1926->APIv6? or 1925->HTTP, 1926->HTTPS?
   api_version: "6" # API version of the TV: 1, 5 or 6
   path: "ambilight/processed" # leave default. see code in `ambilight_tv.py`
-  wait_for_startup_s: 29 # Timeout for pinging device before reporting an error
-  power_on_time_s: 8 # Timeout to FINISH TV booting before sending commands
+
+  # CONFIGURATION MODES:
+  #
+  # Mode 1: Polling Mode (Current/Default Behavior)
+  #   - Add-on monitors TV itself and exits if TV doesn't respond
+  #   - Use if you want add-on to auto-restart on TV power cycles
+  wait_for_startup_s: 29          # Wait 29s for TV at startup, then exit
+  runtime_error_threshold: 10     # Exit after 10 consecutive TV errors
+
+  # Mode 2: Automation Mode (For Home Assistant Integration)
+  #   - Set both to 0 to wait indefinitely for TV
+  #   - Create HA automations to start/stop add-on based on TV state
+  #   - See DOCS.md for automation setup guide
+  # wait_for_startup_s: 0         # Wait indefinitely for TV
+  # runtime_error_threshold: 0    # Never exit on TV offline
+
+  power_on_time_s: 8              # Grace period for TV boot (both modes)
 
 hue_entertainment_group:
   # SEE README.md for more details
