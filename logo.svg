@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="512" height="256" viewBox="0 0 512 256" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="512" height="256" fill="#1a1a2e" rx="16"/>
+
+  <!-- Left side: TV with Ambilight -->
+  <g id="tv-section">
+    <defs>
+      <linearGradient id="ambilightGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" style="stop-color:#ff00ff;stop-opacity:0.9"/>
+        <stop offset="25%" style="stop-color:#00ffff;stop-opacity:0.9"/>
+        <stop offset="50%" style="stop-color:#ffff00;stop-opacity:0.9"/>
+        <stop offset="75%" style="stop-color:#00ff00;stop-opacity:0.9"/>
+        <stop offset="100%" style="stop-color:#ff00ff;stop-opacity:0.9"/>
+      </linearGradient>
+
+      <filter id="glowEffect">
+        <feGaussianBlur stdDeviation="5" result="coloredBlur"/>
+        <feMerge>
+          <feMergeNode in="coloredBlur"/>
+          <feMergeNode in="SourceGraphic"/>
+        </feMerge>
+      </filter>
+    </defs>
+
+    <!-- Ambilight glow -->
+    <rect x="30" y="60" width="180" height="110" fill="none" stroke="url(#ambilightGradient)" stroke-width="10" rx="6" filter="url(#glowEffect)"/>
+
+    <!-- TV Screen -->
+    <rect x="45" y="75" width="150" height="80" fill="#0f3460" rx="6"/>
+    <rect x="52" y="82" width="136" height="66" fill="#16213e"/>
+
+    <!-- TV Stand -->
+    <rect x="105" y="155" width="40" height="5" fill="#e94560"/>
+    <rect x="85" y="160" width="80" height="10" fill="#e94560" rx="2"/>
+
+    <!-- Small rainbow gradient on screen to show ambilight effect -->
+    <rect x="60" y="90" width="116" height="8" fill="url(#ambilightGradient)" opacity="0.6" rx="2"/>
+    <rect x="60" y="132" width="116" height="8" fill="url(#ambilightGradient)" opacity="0.6" rx="2"/>
+  </g>
+
+  <!-- Center: Animated connection -->
+  <g id="connection">
+    <defs>
+      <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+        <polygon points="0 0, 12 6, 0 12" fill="#00d9ff"/>
+      </marker>
+    </defs>
+
+    <!-- Connection line with dots -->
+    <line x1="220" y1="128" x2="280" y2="128" stroke="#00d9ff" stroke-width="4" marker-end="url(#arrow)" opacity="0.9"/>
+
+    <!-- Signal waves -->
+    <g opacity="0.6">
+      <path d="M 235 115 Q 240 110 245 115" stroke="#00d9ff" stroke-width="2" fill="none"/>
+      <path d="M 235 141 Q 240 146 245 141" stroke="#00d9ff" stroke-width="2" fill="none"/>
+      <path d="M 255 115 Q 260 110 265 115" stroke="#00d9ff" stroke-width="2" fill="none"/>
+      <path d="M 255 141 Q 260 146 265 141" stroke="#00d9ff" stroke-width="2" fill="none"/>
+    </g>
+
+    <!-- Sync icon -->
+    <circle cx="250" cy="128" r="20" fill="#00d9ff" opacity="0.2"/>
+    <path d="M 242 122 L 242 116 L 236 116 L 244 108 L 252 116 L 246 116 L 246 122 Z" fill="#00d9ff"/>
+    <path d="M 258 134 L 258 140 L 264 140 L 256 148 L 248 140 L 254 140 L 254 134 Z" fill="#00d9ff"/>
+  </g>
+
+  <!-- Right side: Hue Lights -->
+  <g id="hue-section">
+    <!-- Hue Bridge -->
+    <rect x="310" y="95" width="50" height="35" fill="#2c3e50" rx="3"/>
+    <circle cx="335" cy="112" r="4" fill="#00d9ff"/>
+    <rect x="315" y="100" width="40" height="2" fill="#34495e"/>
+    <rect x="315" y="110" width="40" height="2" fill="#34495e"/>
+    <rect x="315" y="120" width="40" height="2" fill="#34495e"/>
+
+    <!-- Light bulbs (4 bulbs) -->
+    <g id="bulb1">
+      <circle cx="390" cy="80" r="20" fill="#4A90E2" opacity="0.95"/>
+      <circle cx="390" cy="80" r="26" fill="#4A90E2" opacity="0.3"/>
+      <path d="M 390 100 L 387 112 L 393 112 Z" fill="#E0E0E0"/>
+      <rect x="386" y="112" width="8" height="4" fill="#B0B0B0" rx="1"/>
+    </g>
+
+    <g id="bulb2">
+      <circle cx="450" cy="80" r="20" fill="#9B59B6" opacity="0.95"/>
+      <circle cx="450" cy="80" r="26" fill="#9B59B6" opacity="0.3"/>
+      <path d="M 450 100 L 447 112 L 453 112 Z" fill="#E0E0E0"/>
+      <rect x="446" y="112" width="8" height="4" fill="#B0B0B0" rx="1"/>
+    </g>
+
+    <g id="bulb3">
+      <circle cx="390" cy="150" r="20" fill="#E67E22" opacity="0.95"/>
+      <circle cx="390" cy="150" r="26" fill="#E67E22" opacity="0.3"/>
+      <path d="M 390 170 L 387 182 L 393 182 Z" fill="#E0E0E0"/>
+      <rect x="386" y="182" width="8" height="4" fill="#B0B0B0" rx="1"/>
+    </g>
+
+    <g id="bulb4">
+      <circle cx="450" cy="150" r="20" fill="#F39C12" opacity="0.95"/>
+      <circle cx="450" cy="150" r="26" fill="#F39C12" opacity="0.3"/>
+      <path d="M 450 170 L 447 182 L 453 182 Z" fill="#E0E0E0"/>
+      <rect x="446" y="182" width="8" height="4" fill="#B0B0B0" rx="1"/>
+    </g>
+
+    <!-- Connection lines from bridge to bulbs -->
+    <line x1="335" y1="112" x2="370" y2="80" stroke="#00d9ff" stroke-width="2" opacity="0.4" stroke-dasharray="3,3"/>
+    <line x1="335" y1="112" x2="430" y2="80" stroke="#00d9ff" stroke-width="2" opacity="0.4" stroke-dasharray="3,3"/>
+    <line x1="335" y1="112" x2="370" y2="150" stroke="#00d9ff" stroke-width="2" opacity="0.4" stroke-dasharray="3,3"/>
+    <line x1="335" y1="112" x2="430" y2="150" stroke="#00d9ff" stroke-width="2" opacity="0.4" stroke-dasharray="3,3"/>
+  </g>
+
+  <!-- Text: AmbiHue -->
+  <text x="50" y="220" font-family="Arial, sans-serif" font-size="36" font-weight="bold" fill="#00d9ff">AmbiHue</text>
+  <text x="50" y="240" font-family="Arial, sans-serif" font-size="14" fill="#95a5a6">TV Ambilight to Hue Sync</text>
+</svg>
