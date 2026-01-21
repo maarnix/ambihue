@@ -1,7 +1,7 @@
 # AmbiHue
 
-[![Run SuperLinter](https://github.com/klimak000/ambihue/actions/workflows/superlinter.yml/badge.svg)](https://github.com/klimak000/ambihue/actions/workflows/superlinter.yml)
-[![Build Docker Image](https://github.com/klimak000/ambihue/actions/workflows/docker_build.yml/badge.svg)](https://github.com/klimak000/ambihue/actions/workflows/docker_build.yml)
+[![Run SuperLinter](https://github.com/maarnix/ambihue/actions/workflows/superlinter.yml/badge.svg)](https://github.com/maarnix/ambihue/actions/workflows/superlinter.yml)
+[![Build Docker Image](https://github.com/maarnix/ambihue/actions/workflows/docker_build.yml/badge.svg)](https://github.com/maarnix/ambihue/actions/workflows/docker_build.yml)
 
 Program restores connection between Philips Ambilight TVs and the Hue Bridge by reading Ambilight data from the TV and forwarding it to Hue via the Entertainment Area API.
 
@@ -154,7 +154,7 @@ hue_entertainment_group:
 
 ### Via UI
 
-1. [![Open your Home Assistant instance and show the add add-on repository dialog with a specific repository URL pre-filled.](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2Fklimak000%2Fambihue)
+1. [![Open your Home Assistant instance and show the add add-on repository dialog with a specific repository URL pre-filled.](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2Fmaarnix%2Fambihue)
 1. Navigate to HA Addon and click `AmbiHue`
 
     ![preview](.github/images/ha_store.png)

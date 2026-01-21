@@ -10,7 +10,7 @@ The Hue Entertainment Area provides low-latency color updates, offering signific
 
 1. Click the button below to add this repository to your Home Assistant instance:
 
-   [![Open your Home Assistant instance and show the add add-on repository dialog with a specific repository URL pre-filled.](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2Fklimak000%2Fambihue)
+   [![Open your Home Assistant instance and show the add add-on repository dialog with a specific repository URL pre-filled.](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2Fmaarnix%2Fambihue)
 
 2. Navigate to Settings → Add-ons → Add-on Store
 3. Find "AmbiHue" in the list and click it
@@ -246,7 +246,7 @@ When using automation mode (or any configuration):
 ## Support
 
 For issues, feature requests, or contributions, visit:
-https://github.com/klimak000/ambihue/issues
+https://github.com/maarnix/ambihue/issues
 
 ## Technical Details
 
