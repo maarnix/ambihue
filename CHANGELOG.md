@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.3.1] - 2025-01-21
+
+### Changed
+- Disabled form-based configuration UI in favor of YAML-only editing
+- Added panel icon (mdi:television-ambient-light) for better visual identification
+
+### Fixed
+- Resolved issues with complex configuration not rendering properly in form UI
+
 ## [1.3.0] - 2025-01-21
 
 ### Added
