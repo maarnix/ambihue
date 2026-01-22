@@ -25,7 +25,9 @@ class AmbilightTV:
             auth = DigestAuth(self._user, self._password)
 
         # HTTP client with optional DigestAuth
-        self._client = httpx.Client(verify=False, http2=True, auth=auth)
+        # Disable retries to ensure fast failure when TV is offline (respects timeout)
+        transport = httpx.HTTPTransport(retries=0)
+        self._client = httpx.Client(verify=False, http2=True, auth=auth, transport=transport)
 
         # Connection / API parameters
         self._protocol = config.get("protocol", "https://")

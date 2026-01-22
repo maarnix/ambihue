@@ -1,6 +1,6 @@
 ---
 name: AmbiHue
-version: "1.3.2"
+version: "1.3.3"
 slug: ambihue
 description: "ambihue = Ambilight and Hue connected again!"
 url: https://github.com/maarnix/ambihue
