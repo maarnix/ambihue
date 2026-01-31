@@ -26,8 +26,9 @@ class AmbilightTV:
 
         # HTTP client with optional DigestAuth
         # Disable retries to ensure fast failure when TV is offline (respects timeout)
-        transport = httpx.HTTPTransport(retries=0)
-        self._client = httpx.Client(verify=False, http2=True, auth=auth, transport=transport)
+        # verify=False on transport to accept TV's self-signed certificate
+        transport = httpx.HTTPTransport(retries=0, verify=False)
+        self._client = httpx.Client(http2=True, auth=auth, transport=transport)
 
         # Connection / API parameters
         self._protocol = config.get("protocol", "https://")
@@ -95,6 +96,22 @@ class AmbilightTV:
             time.sleep(2)
 
         raise RuntimeError(f"TV IS NOT RESPONDING FOR {self._wait_for_startup_s}s")
+
+    def get_powerstate(self) -> str:
+        """Get TV power state from JointSpace API.
+
+        Returns:
+            Power state string: "On", "Standby", "StandbyKeep", or "" on error.
+        """
+        url = f"{self._protocol}{self._ip}:{self._port}/{self._api_version}/powerstate"
+        try:
+            response = self._client.get(url, timeout=2.0)
+            if response.status_code == 200:
+                data = response.json()
+                return data.get("powerstate", "")
+        except Exception:
+            pass
+        return ""
 
     def get_ambilight_raw(self) -> Any:
         # logger.debug(f"Sending GET request to:\n{self._full_path}")

@@ -37,24 +37,37 @@ class ColorMixer:
 
         # print(f"TAB:\n{self._colors}\n")
 
+    @property
+    def num_colors(self) -> int:
+        """Return the total number of color zones available from the TV."""
+        return len(self._colors)
+
     def get_average_color(self, positions: List[int]) -> Color:
-        """Calculate the average color from the collected colors."""
-        assert self._colors, "Colors have not been set yet."
-        assert isinstance(positions, list)
-        assert all(isinstance(pos, int) for pos in positions)
-        assert all(
-            0 <= pos < len(self._colors) for pos in positions
-        ), "Position indices are out of bounds."
+        """Calculate the average color from the collected colors.
+
+        Returns black (0,0,0) if positions is empty.
+        Out-of-bounds positions are silently skipped.
+        """
+        if not positions:
+            return Color(0, 0, 0)
+
+        if not self._colors:
+            return Color(0, 0, 0)
+
+        # Filter to valid positions only
+        valid_positions = [pos for pos in positions if 0 <= pos < len(self._colors)]
+        if not valid_positions:
+            return Color(0, 0, 0)
 
         color = Color(0, 0, 0)
-        for pos in positions:
+        for pos in valid_positions:
             color.red += self._colors[pos].red
             color.green += self._colors[pos].green
             color.blue += self._colors[pos].blue
 
-        color.red //= len(positions)
-        color.green //= len(positions)
-        color.blue //= len(positions)
+        color.red //= len(valid_positions)
+        color.green //= len(valid_positions)
+        color.blue //= len(valid_positions)
         return color
 
     def is_all_black(self, threshold: int = 15) -> bool:

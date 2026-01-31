@@ -16,69 +16,103 @@ The Hue Entertainment Area provides low-latency color updates, offering signific
 3. Find "AmbiHue" in the list and click it
 4. Click "INSTALL"
 
+## Quick Start (Auto-Setup)
+
+AmbiHue can automatically discover and configure your devices:
+
+1. **Create an Entertainment Area** in the Philips Hue app first ([see tutorial](https://www.youtube.com/watch?v=OlXapdkedus))
+2. **Press the button on your Hue Bridge**
+3. **Start the add-on** - it will auto-discover your TV and Bridge
+4. **Check the logs** for discovered lights and configure positions
+
+### Auto-Discovery Flow
+
+| Device | Discovery Method |
+|--------|-----------------|
+| **Hue Bridge** | Philips cloud portal + direct HTTPS API (works in Docker). Press Bridge button before or during startup. Polls for 30 seconds. |
+| **Philips TV** | Home Assistant device registry (if `philips_js` integration exists), then SSDP network scan as fallback. |
+| **Non-Android TV** | Connects without authentication after discovery. |
+| **Android TV** | Two-phase PIN pairing (see below). |
+
+### Android TV Pairing
+
+Android TVs require PIN authentication, handled in two phases:
+
+1. **Start the add-on** — a PIN code appears on your TV screen. The add-on saves a pairing key internally and exits.
+2. Go to **Settings → Add-ons → AmbiHue → Configuration** and enter the PIN in the `pairing_pin` field. Save.
+3. **Restart the add-on** — it pairs using the saved key and your PIN. Credentials are stored automatically.
+
+> The `pairing_pin` field is only used during initial setup. After successful pairing, it can be left empty.
+>
+> For standalone usage, the PIN can also be entered directly in the terminal when prompted.
+
 ## Configuration
 
-Before starting the add-on, you need to configure three sections:
+After auto-setup, you only need to configure the light positions. For manual setup, configure all three sections.
 
 ### 1. Ambilight TV Configuration
 
-Configure your Philips Ambilight TV connection:
-
 ```yaml
 ambilight_tv:
   protocol: "https://"
-  ip: "192.168.1.100"  # Replace with your TV's IP address
-  port: "1926"
-  api_version: "6"
-  path: "ambilight/processed"
-  wait_for_startup_s: 29
-  power_on_time_s: 8
-```
-
-**For Android TVs with authentication:**
-If your TV requires authentication (common with newer Android TVs), you'll need to add credentials obtained using [pylips](https://github.com/eslavnov/pylips):
-
-```yaml
-ambilight_tv:
-  protocol: "https://"
-  ip: "192.168.1.100"
-  port: "1926"
-  api_version: "6"
-  path: "ambilight/processed"
-  wait_for_startup_s: 29
-  power_on_time_s: 8
-  user: "your_username_from_pylips"
-  password: "your_password_from_pylips"
+  ip: "192.168.1.100"    # Auto-discovered or set manually
+  port: 1926
+  api_version: 6
+  user: ""               # Filled automatically for Android TVs
+  password: ""           # Filled automatically for Android TVs
+  pairing_pin: ""        # Temporary: for Android TV PIN entry
+  refresh_rate_ms: 50    # Color update rate
+  idle_refresh_rate_ms: 5000
 ```
 
 ### 2. Hue Entertainment Group Configuration
 
-Before configuring, you must:
-1. Create an Entertainment Area in the Philips Hue app ([see official tutorial](https://www.youtube.com/watch?v=OlXapdkedus))
-2. Add the lights you want to sync to this Entertainment Area
-3. Use the discovery feature (see below) to get your bridge credentials
-
-**Discovery Command:**
-To automatically discover your Hue Bridge configuration, you can use the built-in discovery feature. Install the add-on first, then run with the `--discover_hue` flag using the add-on logs or via SSH.
-
 ```yaml
 hue_entertainment_group:
-  _identification: "bridge_id_here"
-  _rid: "entertainment_area_rid"
-  _ip_address: "192.168.1.50"  # Your Hue Bridge IP
-  _swversion: 1972004020
-  _username: "generated_username"
-  _hue_app_id: "generated_app_id"
-  _client_key: "generated_client_key"
-  _name: "Hue Bridge"
-  index: 0  # Entertainment Area index (usually 0)
+  ip: "192.168.1.50"           # Auto-discovered
+  identification: "..."         # Auto-filled after pairing
+  rid: "..."
+  username: "..."
+  app_id: "..."
+  client_key: "..."
+  swversion: 1972004020
+  index: 0                      # Entertainment Area index
 ```
 
 ### 3. Lights Setup Configuration
 
-Configure the physical position of your lights relative to your TV. Each light can use color data from multiple TV zones.
+Configure each light with its position relative to the TV:
 
-**Position Index Map:**
+```yaml
+lights_setup:
+  - name: "wall_left_down"
+    id: 0                  # Light index from Entertainment Area
+    positions: "0,1,3"     # Ambilight zones (comma-separated)
+  - name: "wall_left_up"
+    id: 1
+    positions: "2,4,5"
+  - name: "wall_right_up"
+    id: 2
+    positions: "8,9,11"
+  - name: "wall_right_down"
+    id: 3
+    positions: "10,12,13"
+```
+
+**Finding Light IDs:** Check the add-on logs after Hue pairing:
+
+```
+============================================================
+ENTERTAINMENT ZONES DISCOVERED
+============================================================
+Zone 0: Living Room
+  Lights:
+    [0] Hue Play Bar 1
+    [1] Hue Play Bar 2
+============================================================
+```
+
+**Ambilight Zone Map** (positions 0-16):
 
 ```text
 [4] 0Top  [5]1T  [6]2T  [7]3T  [8]4T  [9]5T  [10]6T  [11]7T  [12] 8Top
@@ -87,36 +121,6 @@ Configure the physical position of your lights relative to your TV. Each light c
 [1] 1Left  ↑                                               ↓ [15] 2Right
 [0] 0Left  ↑                                               ↓ [16] 3Right
 ```
-
-**Example Configuration:**
-For four lights positioned around your TV (left down, left up, right up, right down):
-
-```yaml
-lights_setup:
-  A_name: "wall_left_down"
-  A_id: 0  # Light ID within Entertainment Area (not global Hue ID)
-  A_positions: [0, 1, 3]
-  B_name: "wall_left_up"
-  B_id: 1
-  B_positions: [2, 4, 5]
-  C_name: "wall_right_up"
-  C_id: 2
-  C_positions: [8, 9, 11]
-  D_name: "wall_right_down"
-  D_id: 3
-  D_positions: [10, 12, 13]
-```
-
-**Important:** The `A_id`, `B_id`, `C_id`, `D_id` values refer to the light's position within your Entertainment Area, NOT the global Hue light ID.
-
-## How to Configure
-
-1. After installing the add-on, go to the add-on page
-2. Click on the "Configuration" tab
-3. Click the three dots (⋮) and select "Edit in YAML"
-4. Paste your complete configuration following the structure above
-5. Click "SAVE"
-6. Go to the "Info" tab and click "START"
 
 ## Verification
 
@@ -221,15 +225,21 @@ When using automation mode (or any configuration):
 
 ## Troubleshooting
 
+### Auto-Setup Issues
+- **"Hue Bridge pairing timed out"**: Press the Bridge button and restart the add-on
+- **"TV PAIRING REQUIRED"**: This is expected for Android TVs. Enter the PIN shown on TV in the config
+- **"No Philips TVs found"**: Set the TV IP manually in the configuration
+- **PIN not working**: Make sure to enter the exact PIN shown on TV. If the add-on was restarted without entering a PIN, the pairing key expires and a new PIN will be generated on the next start.
+
 ### TV Connection Issues
 - Verify the TV IP address is correct
 - Check if your TV API version is correct (usually 6 for newer models, 5 for older)
-- For Android TVs, ensure you've added user/password credentials
-- Try using [pylips](https://github.com/eslavnov/pylips) for TV discovery
+- For Android TVs, the add-on handles pairing automatically via the `pairing_pin` field
+- For manual setup, try using [pylips](https://github.com/eslavnov/pylips) to get credentials
 
 ### Hue Connection Issues
-- Ensure your Entertainment Area is created in the Hue app
-- Verify the Hue Bridge IP address
+- Ensure your Entertainment Area is created in the Hue app **before** starting AmbiHue
+- Press the Bridge button **before** starting the add-on (or within 30 seconds)
 - Make sure the `index` value matches your Entertainment Area
 - Check that lights are added to the Entertainment Area
 

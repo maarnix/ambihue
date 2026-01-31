@@ -6,7 +6,7 @@ from pathlib import Path
 from time import sleep
 from typing import Any, Dict, Optional, Union
 
-from src.ambilight_tv import AmbilightTV  # TODO install
+from src.ambilight_tv import AmbilightTV
 from src.color_mixer import ColorMixer
 from src.config_loader import ConfigLoader
 from src.hue_entertainment import HueEntertainmentGroupKit, detect_hue_entertainment
@@ -46,6 +46,15 @@ class AmbiHueMain:
 
         # Hue will be initialized after TV is ready
         self._hue = None
+
+        # Black screen timeout: tear down session after this many seconds of black
+        self._black_screen_timeout_s = tv_config.get("black_screen_timeout_s", 30)
+        self._black_since: Optional[float] = None  # timestamp when screen went black
+
+        # Status reporting
+        self._frame_count = 0
+        self._last_status_time = time.time()
+        self._status_interval_s = 60  # Report status every 60 seconds
 
     def _read_tv(self) -> Optional[Dict[str, Any]]:
         """Read the Ambilight TV data.
@@ -92,6 +101,29 @@ class AmbiHueMain:
         logger.warning(f"[{msg}] elapsed time: {elapsed_time} ms")
         self._previous_time = current_time
 
+    def _log_status(self) -> None:
+        """Log periodic status update every status_interval_s seconds."""
+        current_time = time.time()
+        elapsed = current_time - self._last_status_time
+
+        if elapsed < self._status_interval_s:
+            return  # not time yet
+
+        if self._tv_has_content and self._frame_count > 0:
+            # Streaming mode - report achieved Hz
+            hz = self._frame_count / elapsed
+            logger.warning(f"Status: Streaming at {hz:.1f} Hz ({self._frame_count} frames in {elapsed:.0f}s)")
+        elif self._hue is not None:
+            # Session active but screen is black
+            logger.warning("Status: Session active - TV screen is black")
+        else:
+            # Waiting for first TV data
+            logger.warning("Status: Idle mode - waiting for TV content")
+
+        # Reset counters
+        self._frame_count = 0
+        self._last_status_time = current_time
+
     def run(self) -> None:
         """Run the main loop of the AmbiHue application."""
         self._tv.wait_for_startup()
@@ -102,10 +134,16 @@ class AmbiHueMain:
         logger.info("Starting AmbiHue application in polling mode...")
 
         while True:  # while true
-            # Use idle refresh rate when no content, normal rate when syncing
-            current_refresh_rate = self._idle_refresh_rate_s if self._hue is None else self._refresh_rate_s
+            # Use idle refresh rate when no session or screen is black, normal rate when streaming
+            if self._hue is None or not self._tv_has_content:
+                current_refresh_rate = self._idle_refresh_rate_s
+            else:
+                current_refresh_rate = self._refresh_rate_s
             sleep(current_refresh_rate)
             self._debug_log_time("sleep")
+
+            # Periodic status logging
+            self._log_status()
 
             tv_data = self._read_tv()
             if tv_data is None:
@@ -119,37 +157,80 @@ class AmbiHueMain:
             # Check if TV screen is all black (no content playing)
             is_black = self._mixer.is_all_black()
             logger.debug(f"is_all_black() returned: {is_black}")
+
             if is_black:
-                # TV is showing black screen - terminate sync session and go to idle mode
                 if self._tv_has_content:
-                    logger.info("TV screen is black (no content), terminating Entertainment session")
+                    logger.info("TV screen is black, pausing light updates")
                     self._tv_has_content = False
-                    if self._hue is not None:
-                        logger.info("Stopping Hue Entertainment stream...")
+                    self._black_since = time.time()
+
+                # Check if we should tear down an active session
+                if self._hue is not None and self._black_since is not None:
+                    black_duration = time.time() - self._black_since
+
+                    # Check TV power state after 5s of black to detect standby
+                    if black_duration >= 5:
+                        powerstate = self._tv.get_powerstate()
+                        if powerstate and powerstate != "On":
+                            logger.warning(f"TV power state: {powerstate}, stopping Entertainment session")
+                            del self._hue
+                            self._hue = None
+                            self._black_since = None
+                            continue
+
+                    # Fallback: tear down after timeout even if powerstate check fails
+                    if black_duration >= self._black_screen_timeout_s:
+                        logger.warning(f"Black screen for {int(black_duration)}s, stopping Entertainment session")
                         del self._hue
                         self._hue = None
-                        logger.info("Entering idle polling mode")
-                continue  # skip to next loop in idle mode
+                        self._black_since = None
 
-            # TV has actual content - start/resume Entertainment session if not already active
-            if self._hue is None:
-                logger.info("TV content detected, starting Entertainment session...")
-                self._tv_has_content = True
-                self._hue = HueEntertainmentGroupKit(self._config_loader.get_hue_entertainment())
-                logger.info("Entertainment session started, resuming light updates")
-            elif not self._tv_has_content:
-                # Content resumed after being black
+                continue  # skip - don't start session or send colors for black screen
+
+            # Screen has content - reset black tracking
+            if not self._tv_has_content:
                 logger.info("TV content resumed")
-                self._tv_has_content = True
+            self._tv_has_content = True
+            self._black_since = None
+
+            # Start Entertainment session when we have actual content
+            if self._hue is None:
+                num_zones = self._mixer.num_colors
+                logger.warning(f"TV content detected ({num_zones} ambilight zones), starting Entertainment session...")
+
+                # Check if any light has out-of-range positions and reassign if needed
+                has_out_of_range = False
+                for light_data in self._light_setup.values():
+                    positions = light_data.get("positions", [])
+                    if any(p >= num_zones for p in positions):
+                        has_out_of_range = True
+                        break
+
+                if has_out_of_range:
+                    logger.warning(f"Reassigning light positions for {num_zones}-zone TV...")
+                    lights = list(self._light_setup.keys())
+                    chunk_size = num_zones / len(lights)
+                    for i, light_name in enumerate(lights):
+                        start = int(round(i * chunk_size))
+                        end = int(round((i + 1) * chunk_size))
+                        new_positions = list(range(start, end))
+                        self._light_setup[light_name]["positions"] = new_positions
+                        logger.warning(f"  {light_name}: positions {new_positions}")
+                else:
+                    for light_name, light_data in self._light_setup.items():
+                        logger.warning(f"  {light_name}: positions {light_data.get('positions', [])}")
+
+                self._hue = HueEntertainmentGroupKit(self._config_loader.get_hue_entertainment())
+                logger.warning("Entertainment session started")
 
             for light_name, light_data in self._light_setup.items():
                 color = self._mixer.get_average_color(light_data["positions"])
                 self._hue.set_color(light_data["id"], color.get_tuple())
 
                 print_color = color.get_css_color_name_colored()
-                logger.info(f"Light: {light_name} - {print_color} - {light_data} ")
+                logger.debug(f"Light: {light_name} - {print_color} - {light_data} ")
 
-            logger.info("\n\n")
+            self._frame_count += 1
             self._debug_log_time("set_color_x_lights")
 
     def _exit(self, exit_code: int = 0) -> None:

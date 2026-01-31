@@ -3,212 +3,209 @@
 [![Run SuperLinter](https://github.com/maarnix/ambihue/actions/workflows/superlinter.yml/badge.svg)](https://github.com/maarnix/ambihue/actions/workflows/superlinter.yml)
 [![Build Docker Image](https://github.com/maarnix/ambihue/actions/workflows/docker_build.yml/badge.svg)](https://github.com/maarnix/ambihue/actions/workflows/docker_build.yml)
 
-Program restores connection between Philips Ambilight TVs and the Hue Bridge by reading Ambilight data from the TV and forwarding it to Hue via the Entertainment Area API.
+AmbiHue restores the connection between Philips Ambilight TVs and the Hue Bridge by reading Ambilight color data from the TV and forwarding it to Hue lights via the Entertainment Area API.
 
-The Hue Entertainment Area provides low-latency color updates, offering significantly faster response times compared to standard light control via the Hue API.
-
-**It is possilbe to get 15 updates per second!**
+The Hue Entertainment Area provides low-latency color updates — up to **15 updates per second**.
 
 ![preview](.github/images/preview.png)
 
-
 ```mermaid
-classDiagram
-    class TV {
-        ambilight data
-        share data via TV API
-    }
-
-    class AmbiHue {
-        read TV data
-        know light's positions
-        calculate lights colors
-        send to HueBridge
-    }
-
-    class HueBridge {
-        sync via entertainment area
-        low-latency
-    }
-
-    TV --> AmbiHue : ambilight data
-    AmbiHue --> HueBridge : light color updates
-
+flowchart LR
+    TV["Philips TV\n(Ambilight data)"] --> AmbiHue["AmbiHue\n(reads colors,\ncalculates per light)"]
+    AmbiHue --> Bridge["Hue Bridge\n(Entertainment Area,\nlow-latency sync)"]
 ```
 
-## Setup user configuration
+---
 
-1. Copy config:
+## Home Assistant Add-on (Recommended)
 
-   ```bash
-   cp userconfig.example.yaml userconfig.yaml
-   ```
+### Installation
 
-1. Install `ambihue` repository
+1. [![Add repository to Home Assistant](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2Fmaarnix%2Fambihue)
 
-   Activate virtual env
+2. Go to **Settings → Add-ons → Add-on Store** and install **AmbiHue**
 
-   ```bash
-   pip3 install -r requirements.txt
-   pip3 install .
-   ```
+### Quick Start
 
-### Setup Ambilight TV
+1. Create an **Entertainment Area** in the Philips Hue app ([tutorial](https://www.youtube.com/watch?v=OlXapdkedus))
+2. **Press the button** on your Hue Bridge
+3. **Start** the add-on — it auto-discovers your TV and Bridge
+4. Check the **Log** tab for discovered lights, then configure positions in the **Configuration** tab
 
-1. Setup IP, protocol, prot and API version.
-2. In case of problem use [`pylips` config discover feature](https://github.com/eslavnov/pylips/tree/master?tab=readme-ov-file#new-users)
-3. If needed for Android TVs, add user and password to the userconfig.yaml file
-   ```yaml
-   ambilight_tv:
-     protocol: "https://" # "http://" or "https://"
-     ip: "[TV IP ADDRESS]" # IP address of the TV
-     port: 1926 # 1925 for APIv5, 1926->APIv6? or 1925->HTTP, 1926->HTTPS?
-     api_version: 6 # API version of the TV: 1, 5 or 6
-     path: "ambilight/processed" # leave default. see code in `ambilight_tv.py`
-     wait_for_startup_s: 29 # Timeout for pinging device before reporting an error
-     power_on_time_s: 8 # Timeout to FINISH TV booting before sending commands
-     user: "[USER-FROM-PYLIPS]"
-     password: "[PASS-FROM-PYLIPS]"
+### Auto-Discovery
 
-4. Verify connection by calling ambihue.py
-    ```bash
-    ./ambihue.py --verify tv --loglevel DEBUG
-    ```
+AmbiHue automatically discovers and configures devices when credentials are not yet set:
 
-### Setup Hue Entertainment
+| Device | Discovery Method |
+|--------|-----------------|
+| **Hue Bridge** | Philips cloud portal + direct HTTPS API (works in Docker). Press the Bridge button before or during startup. |
+| **Philips TV** | Home Assistant device registry (if `philips_js` integration exists), then SSDP network scan as fallback. |
 
-1. Create Entertainment area in Philips app. [See official tutorial](https://www.youtube.com/watch?v=OlXapdkedus)
+### TV Pairing
 
-1. Get your bridge access data
+| TV Type | Pairing |
+|---------|---------|
+| **Non-Android TV** | No authentication required. Connects automatically after discovery. |
+| **Android TV** | PIN-based two-phase pairing (see below). |
 
-    ```bash
-    ./ambihue.py --discover_hue --loglevel DEBUG
-    ```
+#### Android TV PIN Pairing
 
-   More information on [`hue-entertainment-pykit` repository readme.](https://github.com/hrdasdominik/hue-entertainment-pykit?tab=readme-ov-file#discovery-optional)
+Android TVs require PIN authentication, handled in two phases:
 
-1. Use printed values to fill config `hue_entertainment_group` config data
+1. **Start the add-on** — a PIN code appears on your TV screen. The add-on saves a pairing key internally and exits.
+2. Go to **Settings → Add-ons → AmbiHue → Configuration** and enter the PIN in the `pairing_pin` field. Save.
+3. **Restart the add-on** — it pairs using the saved key and your PIN. Credentials are stored automatically.
+
+> The `pairing_pin` field is only used during initial setup. After successful pairing, it can be left empty.
+
+### Configure Light Positions
+
+After setup, check the **Log** tab for discovered lights:
+
+```
+============================================================
+ENTERTAINMENT ZONES DISCOVERED
+============================================================
+Zone 0: Living Room
+  Lights:
+    [0] Hue Play Bar 1
+    [1] Hue Play Bar 2
+============================================================
+```
+
+Then configure `lights_setup` in the **Configuration** tab:
+
 ```yaml
-hue_entertainment_group:
-  _identification: "[...]"
-  _rid: "[...]"
-  _ip_address: "[YOUR BRIDGE IP]"
-  _swversion: [...]
-  _username: "[...]"
-  _hue_app_id: "[...]"
-  _client_key: "[...]"
-  _name: "[...]"
-  index: 0 # Your Entertainment Area selection by index - manual adjustment
+lights_setup:
+  - name: "wall_left"
+    id: 0              # Light index from discovered list
+    positions: "0,1,2" # TV ambilight zones (comma-separated)
+  - name: "wall_right"
+    id: 1
+    positions: "12,13,14"
 ```
-2. Verify connection by calling ambihue
-    ```bash
-    ./ambihue.py --verify hue --loglevel DEBUG
-    ```
-   The id=0 light in your entertainment zone should be red now.
 
-### Setup Light Position
+**Ambilight Zone Map** (positions 0–16):
 
-1. Add light configuration:
+```text
+       [4]0T  [5]1T  [6]2T  [7]3T  [8]4T  [9]5T  [10]6T  [11]7T  [12]8T
+[3]3L                                                                [13]0R
+[2]2L                                                                [14]1R
+[1]1L                                                                [15]2R
+[0]0L                                                                [16]3R
+```
 
-    ```yaml
-    lights_setup:
-      A_name: "your name"
-      A_id: 0 # light number in your entertainment area (not the id in your full hue setup)
-      A_positions: [0, 1]# indexes of color positions used to calculate the average color
-    ```
-    Positions index `[1-16]` table:
-
-    ```text
-    [4] 0Top  [5]1T  [6]2T  [7]3T  [8]4T  [9]5T  [10]6T  [11]7T  [12] 8Top
-    [3] 3Left  ↗    →          →        →       →       →      ↘ [13] 0Right
-    [2] 2Left  ↑                                               ↓ [14] 1Right
-    [1] 1Left  ↑                                               ↓ [15] 2Right
-    [0] 0Left  ↑                                               ↓ [16] 3Right
-    ```
-
-    Example of config for two up and down lights on a wall. NOTE: the id's below are within the Entertainment Area and not the id's of the lights in your full Hue setup
-
-    ```yaml
-    lights_setup:
-      A_name: "wall_left_down"
-      A_id: 0
-      A_positions: [0, 1, 3]
-      B_name: "wall_left_up"
-      B_id: 1
-      B_positions: [2, 4, 5]
-      C_name: "wall_right_up"
-      C_id: 2
-      C_positions: [8, 9, 11]
-      D_name: "wall_right_down"
-      D_id: 3
-      D_positions: [10, 12, 13]
-    ```
-    
-2. Use [this video to test colors](https://youtu.be/8u4UzzJZAUg?t=66)
-3. To verify config run ambihue
-
-    ```bash
-    ./ambihue.py --loglevel DEBUG
-    ```
-## Home Assistance Usage
-
-### Via UI
-
-1. [![Open your Home Assistant instance and show the add add-on repository dialog with a specific repository URL pre-filled.](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2Fmaarnix%2Fambihue)
-1. Navigate to HA Addon and click `AmbiHue`
-
-    ![preview](.github/images/ha_store.png)
-
-1. Install addon and navigate to `Configuration` card
-
-1. Click `Options` 3 dots and click `Edit in YAML`
-
-1. Copy `userconfig.yaml` from setup stage
+Use [this video](https://youtu.be/8u4UzzJZAUg?t=66) to test color mapping.
 
 ### Automation with TV State
 
-AmbiHue supports automatic start/stop based on your TV's power state. See [DOCS.md](DOCS.md#automation-with-home-assistant-tv-state) for:
-- Configuration modes (Polling vs Automation)
-- Setting up Home Assistant automations to control the add-on
-- How to make the add-on start when TV turns on and stop when TV turns off
+AmbiHue can start/stop automatically based on your TV's power state using Home Assistant automations. See [DOCS.md](DOCS.md#automation-with-home-assistant-tv-state) for setup instructions.
 
+### Persistent Configuration
 
-### For Developers
+AmbiHue saves discovered credentials to a separate state file (`/data/ambihue_state.json`) that persists across add-on restarts. Home Assistant overwrites the add-on's `options.json` on each restart, so AmbiHue merges saved state back into the config automatically.
 
-1. Upload code with configured `userconfig.yaml`:
+---
 
+## Standalone / Local Development
+
+For running outside Home Assistant:
+
+### Setup
+
+```bash
+cp userconfig.example.yaml userconfig.yaml
+pip3 install -r requirements.txt
+pip3 install .
+```
+
+Edit `userconfig.yaml` with your device details, or leave placeholder values for auto-discovery.
+
+### Hue Bridge
+
+1. Create an Entertainment Area in the Philips Hue app
+2. Run discovery (press Bridge button when prompted):
    ```bash
-   rsync -r ../ambihue root@111.222.333.444:/addons --stats
+   ./ambihue.py --discover_hue --loglevel DEBUG
    ```
+3. Copy the printed values to `userconfig.yaml` under `hue_entertainment_group`
+4. Verify: `./ambihue.py --verify hue --loglevel DEBUG`
 
-1. Use installed addon as local addon by [following official guide](https://developers.home-assistant.io/docs/add-ons/tutorial#step-2-installing-and-testing-your-add-on)
+### Philips TV
 
-1. Every upload requires `config.yaml`[`version`] update to make changes visible for HA.
+1. Set the TV IP in `userconfig.yaml` under `ambilight_tv`, or leave as placeholder for SSDP discovery
+2. For Android TVs: run AmbiHue and enter the PIN when prompted in the terminal
+3. Verify: `./ambihue.py --verify tv --loglevel DEBUG`
 
-## Files structure
+### Light Positions
 
-- `.github` - GitHub and linters data
-- `.gitignore`
-- `build.yaml` - additional build options Home Assistance addon
-- `config.yaml` - Home Assistance addon config
-- `Dockerfile` - Home Assistance image
-- `pyproject.toml` - Python project config
-- `requirements.txt` - Python packages
-- `userconfig.example.yaml` - copy, rename to `userconfig.yaml`, fill up
-- `repository.yaml` - Home Assistance addon repository config
+Configure lights in `userconfig.yaml`:
 
-## Validate code changes
+```yaml
+lights_setup:
+  wall_left:
+    id: 0
+    positions: [0, 1, 3]
+  wall_right:
+    id: 1
+    positions: [10, 12, 13]
+```
 
-Run script
+Run: `./ambihue.py --loglevel DEBUG`
+
+---
+
+## CLI Reference
+
+| Flag | Description |
+|------|-------------|
+| `--verify hue` | Test Hue Bridge connection (first light turns red) |
+| `--verify tv` | Test TV API connection |
+| `--discover_hue` | Discover Hue Bridge and print credentials |
+| `--loglevel LEVEL` | Set log level: `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL` |
+
+---
+
+## Project Structure
+
+| Path | Description |
+|------|-------------|
+| `ambihue.py` | Entry point, auto-setup flow, config management |
+| `src/main.py` | Main loop: reads TV colors, sends to Hue |
+| `src/ambilight_tv.py` | Philips TV Ambilight API client |
+| `src/hue_entertainment.py` | Hue Entertainment Area streaming + bridge pairing |
+| `src/tv_discovery.py` | TV SSDP discovery, HA registry lookup, PIN pairing |
+| `src/config_loader.py` | YAML config loader with validation |
+| `src/color_mixer.py` | Color averaging for ambilight zones |
+| `src/colors.py` | Color utility functions |
+| `config.yaml` | Home Assistant add-on definition |
+| `userconfig.example.yaml` | Template for standalone config |
+| `Dockerfile` | Docker image for HA add-on |
+| `requirements.txt` | Python dependencies |
+
+---
+
+## Development
+
+### Local add-on testing
+
+1. Copy code to the HA add-ons directory:
+   ```bash
+   rsync -r ../ambihue root@<HA_IP>:/addons --stats
+   ```
+2. Follow the [official local add-on guide](https://developers.home-assistant.io/docs/add-ons/tutorial#step-2-installing-and-testing-your-add-on)
+3. Bump `version` in `config.yaml` after each change for HA to detect updates
+
+### Cross-platform Docker builds
+
+```bash
+docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
+docker build --progress=plain --platform linux/arm64/v8 -t ambihue_test_arm8 .
+docker build --progress=plain --platform linux/arm/v7 -t ambihue_test_arm7 .
+```
+
+### Code validation
 
 ```bash
 ./.github/verify_code.py
 ```
-
-### Test building for others platform
-
-   ```bash
-   docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
-   docker build --progress=plain --debug --platform linux/arm64/v8 -t ambihue_test_arm8 .
-   docker build --progress=plain --debug --platform linux/arm/v7 -t ambihue_test_arm7 .
-   ```
