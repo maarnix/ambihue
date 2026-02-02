@@ -5,7 +5,7 @@
 
 AmbiHue restores the connection between Philips Ambilight TVs and the Hue Bridge by reading Ambilight color data from the TV and forwarding it to Hue lights via the Entertainment Area API.
 
-The Hue Entertainment Area provides low-latency color updates — up to **15 updates per second**.
+The Hue Entertainment Area provides low-latency color updates with smooth transitions.
 
 ![preview](.github/images/preview.png)
 
@@ -100,6 +100,17 @@ Use [this video](https://youtu.be/8u4UzzJZAUg?t=66) to test color mapping.
 ### Automation with TV State
 
 AmbiHue can start/stop automatically based on your TV's power state using Home Assistant automations. See [DOCS.md](DOCS.md#automation-with-home-assistant-tv-state) for setup instructions.
+
+### Tuning
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `refresh_rate_ms` | `0` | Delay between updates (0 = fastest) |
+| `transition_smoothing` | `0.5` | Color smoothing (0.0 = instant, 0.95 = very smooth) |
+| `idle_refresh_rate_ms` | `5000` | Poll rate when TV screen is black |
+| `black_screen_timeout_s` | `30` | Seconds of black before stopping Hue session |
+
+See [DOCS.md](DOCS.md#advanced-options) for all options.
 
 ### Persistent Configuration
 

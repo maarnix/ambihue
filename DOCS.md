@@ -61,8 +61,9 @@ ambilight_tv:
   user: ""               # Filled automatically for Android TVs
   password: ""           # Filled automatically for Android TVs
   pairing_pin: ""        # Temporary: for Android TV PIN entry
-  refresh_rate_ms: 50    # Color update rate
+  refresh_rate_ms: 0     # Color update rate (0 = fastest possible)
   idle_refresh_rate_ms: 5000
+  transition_smoothing: 0.5  # Color smoothing: 0.0 = instant, 0.95 = very smooth
 ```
 
 ### 2. Hue Entertainment Group Configuration
@@ -244,7 +245,9 @@ When using automation mode (or any configuration):
 - Check that lights are added to the Entertainment Area
 
 ### Performance Issues
-- The add-on sends up to 15 updates per second
+- Update rate depends on TV API response time (~5-15 Hz typical)
+- Set `refresh_rate_ms: 0` for maximum throughput (default)
+- Adjust `transition_smoothing` (0.0–0.95) to balance responsiveness vs. smoothness
 - Reduce the number of lights or positions if experiencing lag
 - Check network latency between Home Assistant, TV, and Hue Bridge
 
@@ -258,9 +261,23 @@ When using automation mode (or any configuration):
 For issues, feature requests, or contributions, visit:
 https://github.com/maarnix/ambihue/issues
 
+## Advanced Options
+
+These options can be set in `userconfig.yaml` (standalone) or are available as internal defaults:
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `refresh_rate_ms` | `0` | Delay between color updates (0 = fastest possible) |
+| `idle_refresh_rate_ms` | `5000` | Poll rate when TV screen is black or session inactive |
+| `transition_smoothing` | `0.5` | Exponential smoothing factor (0.0 = instant, 0.95 = very smooth) |
+| `black_screen_timeout_s` | `30` | Seconds of black screen before tearing down Hue session |
+| `wait_for_startup_s` | `29` | Seconds to wait for TV at startup (0 = wait indefinitely) |
+| `runtime_error_threshold` | `10` | Exit after N consecutive TV errors (0 = never exit) |
+| `power_on_time_s` | `8` | Grace period for TV to finish booting |
+
 ## Technical Details
 
-- **Update Rate:** Up to 15 updates per second via Hue Entertainment Area API
+- **Update Rate:** Limited by TV API response time (~5-15 Hz typical) via Hue Entertainment Area API
 - **Supported Architectures:** aarch64, amd64, armv7
 - **Network Requirements:** Access to both TV (port 1926/8080) and Hue Bridge
 - **Dependencies:** Python 3.12, httpx, hue-entertainment-pykit
