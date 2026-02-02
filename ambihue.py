@@ -87,13 +87,7 @@ def _load_saved_state() -> dict[str, Any]:
         try:
             with open(_HA_STATE_PATH, "r", encoding="utf-8") as f:
                 state = json.load(f)
-            logger.warning(f"Loaded saved state from {_HA_STATE_PATH}")
-            # Debug: log state keys to diagnose merge issues
-            for section in ("ambilight_tv", "hue_entertainment_group"):
-                section_data = state.get(section, {})
-                if section_data:
-                    keys_summary = {k: ("***" if k in ("password", "client_key", "auth_key") else v) for k, v in section_data.items()}
-                    logger.warning(f"  State [{section}]: {keys_summary}")
+            logger.info(f"Loaded saved state from {_HA_STATE_PATH}")
             return state
         except (json.JSONDecodeError, OSError) as e:
             logger.warning(f"Failed to load saved state: {e}")
@@ -104,7 +98,7 @@ def _save_state(state: dict[str, Any]) -> None:
     """Save discovered state to persistent file."""
     with open(_HA_STATE_PATH, "w", encoding="utf-8") as f:
         json.dump(state, f, indent=2)
-    logger.warning(f"Saved discovered state to {_HA_STATE_PATH}")
+    logger.info(f"Saved discovered state to {_HA_STATE_PATH}")
 
 
 def _merge_state_into_config(config: dict[str, Any], state: dict[str, Any]) -> bool:
@@ -161,15 +155,12 @@ def _merge_state_into_config(config: dict[str, Any], state: dict[str, Any]) -> b
         if is_default and not saved_is_default:
             config["lights_setup"] = saved_lights
             merged = True
-            logger.warning(f"  Merged lights_setup from state ({len(saved_lights)} lights)")
+            logger.info(f"  Merged lights_setup from state ({len(saved_lights)} lights)")
 
     if merged:
         config["ambilight_tv"] = tv_config
         config["hue_entertainment_group"] = hue_config
-        logger.warning("Merged saved state into config")
-        # Debug: log merged hue config (mask secrets)
-        hue_debug = {k: ("***" if k in ("client_key",) else v) for k, v in hue_config.items()}
-        logger.warning(f"  Hue config after merge: {hue_debug}")
+        logger.info("Merged saved state into config")
 
     return merged
 
@@ -194,7 +185,7 @@ def _get_supervisor_token() -> str:
             with open(path, "r", encoding="utf-8") as f:
                 token = f.read().strip()
                 if token:
-                    logger.warning(f"Found SUPERVISOR_TOKEN at {path}")
+                    logger.info(f"Found SUPERVISOR_TOKEN at {path}")
                     return token
         except (FileNotFoundError, PermissionError):
             continue
@@ -209,7 +200,7 @@ def _update_ha_options(config: dict[str, Any]) -> None:
     """
     token = _get_supervisor_token()
     if not token:
-        logger.warning("No SUPERVISOR_TOKEN found via env/filesystem, trying bashio fallback...")
+        logger.info("No SUPERVISOR_TOKEN found via env/filesystem, trying bashio fallback...")
         _update_ha_options_via_bashio(config)
         return
 
@@ -222,7 +213,7 @@ def _update_ha_options(config: dict[str, Any]) -> None:
             timeout=10.0,
         )
         if response.status_code == 200:
-            logger.warning("Updated HA add-on configuration (visible in UI)")
+            logger.info("Updated HA add-on configuration (visible in UI)")
         else:
             logger.warning(f"Failed to update HA options: {response.status_code} {response.text}")
     except Exception as e:
@@ -249,7 +240,7 @@ def _update_ha_options_via_bashio(config: dict[str, Any]) -> None:
             capture_output=True, text=True, timeout=10,
         )
         if result.returncode == 0 and '"result"' in result.stdout:
-            logger.warning(f"Updated HA options via bashio: {result.stdout.strip()}")
+            logger.info(f"Updated HA options via bashio: {result.stdout.strip()}")
         else:
             logger.warning(f"bashio fallback failed: rc={result.returncode} stdout={result.stdout} stderr={result.stderr}")
     except Exception as e:
@@ -392,7 +383,7 @@ def _populate_lights_from_discovery(
             is_default = True
 
     if not is_default:
-        logger.warning("lights_setup already configured, not overwriting with discovered lights")
+        logger.info("lights_setup already configured, not overwriting with discovered lights")
         return
 
     # Auto-assign default positions spread evenly around TV perimeter
@@ -416,8 +407,8 @@ def _populate_lights_from_discovery(
         }
 
     for i, light in enumerate(lights):
-        logger.warning(f"  {light['name']} (id={light['id']}): positions {default_positions[i]}")
-    logger.warning(f"Populated lights_setup with {len(lights)} lights and default positions")
+        logger.info(f"  {light['name']} (id={light['id']}): positions {default_positions[i]}")
+    logger.info(f"Populated lights_setup with {len(lights)} lights and default positions")
 
 
 def _fix_empty_positions(config: dict[str, Any], is_ha_mode: bool) -> bool:
@@ -455,15 +446,15 @@ def _fix_empty_positions(config: dict[str, Any], is_ha_mode: bool) -> bool:
             pos = light.get("positions", "")
             if not pos or pos == "":
                 light["positions"] = ",".join(str(p) for p in default_positions[i])
-                logger.warning(f"  Auto-assigned positions {default_positions[i]} to {light.get('name', f'light {i}')}")
+                logger.info(f"  Auto-assigned positions {default_positions[i]} to {light.get('name', f'light {i}')}")
     elif isinstance(lights, dict):
         for i, (name, light_data) in enumerate(lights.items()):
             pos = light_data.get("positions", [])
             if not pos:
                 light_data["positions"] = default_positions[i]
-                logger.warning(f"  Auto-assigned positions {default_positions[i]} to {name}")
+                logger.info(f"  Auto-assigned positions {default_positions[i]} to {name}")
 
-    logger.warning("Fixed empty light positions with defaults")
+    logger.info("Fixed empty light positions with defaults")
     return True
 
 
@@ -481,7 +472,7 @@ def _persist_config(config: dict[str, Any], is_ha_mode: bool) -> None:
     else:
         with open("userconfig.yaml", "w", encoding="utf-8") as f:
             yaml.dump(config, f, default_flow_style=False)
-        logger.warning("Updated config saved to userconfig.yaml")
+        logger.info("Updated config saved to userconfig.yaml")
 
 
 def _check_and_run_setup() -> bool:
@@ -507,7 +498,7 @@ def _check_and_run_setup() -> bool:
                 # Write merged config back to options.json so _get_config_path() picks it up
                 with open(_HA_OPTIONS_PATH, "w", encoding="utf-8") as f:
                     json.dump(config, f, indent=2)
-                logger.warning("Wrote merged config to options.json")
+                logger.info("Wrote merged config to options.json")
                 # Also update Supervisor's copy so the HA UI shows merged values
                 _update_ha_options(config)
 
@@ -540,14 +531,14 @@ def _check_and_run_setup() -> bool:
     # If we have credentials but the IP is a placeholder (e.g. state was corrupted),
     # re-discover the bridge IP via the portal without requiring button press.
     if hue_id not in PLACEHOLDER_CREDS and hue_ip in PLACEHOLDER_IPS:
-        logger.warning("Hue credentials found but bridge IP is missing, re-discovering...")
+        logger.info("Hue credentials found but bridge IP is missing, re-discovering...")
         from src.hue_entertainment import _discover_bridge_ip_via_portal
         recovered_ip = _discover_bridge_ip_via_portal()
         if recovered_ip:
             hue_config[hue_ip_key] = recovered_ip
             config["hue_entertainment_group"] = hue_config
             setup_performed = True
-            logger.warning(f"Recovered Hue Bridge IP: {recovered_ip}")
+            logger.info(f"Recovered Hue Bridge IP: {recovered_ip}")
             _persist_config(config, is_ha_mode)
         else:
             logger.warning("Could not re-discover Hue Bridge IP. Set it manually in config.")
@@ -558,7 +549,7 @@ def _check_and_run_setup() -> bool:
     hue_rid = hue_config.get(hue_rid_key, "")
     hue_ip = hue_config.get(hue_ip_key, "")  # Re-read after possible recovery
     if hue_id not in PLACEHOLDER_CREDS and hue_ip not in PLACEHOLDER_IPS and hue_rid in PLACEHOLDER_CREDS:
-        logger.warning("Hue RID is missing, discovering entertainment areas...")
+        logger.info("Hue RID is missing, discovering entertainment areas...")
         # Build a config dict compatible with discover_and_log_lights
         temp_hue_config = _convert_ha_options_to_config(config)["hue_entertainment_group"] if is_ha_mode else hue_config
         discovery_result = discover_and_log_lights(temp_hue_config)
@@ -567,7 +558,7 @@ def _check_and_run_setup() -> bool:
             config["hue_entertainment_group"] = hue_config
             _populate_lights_from_discovery(config, discovery_result["lights"], is_ha_mode)
             setup_performed = True
-            logger.warning(f"Recovered Hue RID: {discovery_result['rid']}")
+            logger.info(f"Recovered Hue RID: {discovery_result['rid']}")
             _persist_config(config, is_ha_mode)
 
     # === POPULATE LIGHTS FROM BRIDGE ===
@@ -580,7 +571,7 @@ def _check_and_run_setup() -> bool:
         is_default_lights = _is_default_lights(current_lights)
 
         if is_default_lights:
-            logger.warning("lights_setup has default values, discovering lights from bridge...")
+            logger.info("lights_setup has default values, discovering lights from bridge...")
             temp_hue_config = _convert_ha_options_to_config(config)["hue_entertainment_group"] if is_ha_mode else hue_config
             discovery_result = discover_and_log_lights(temp_hue_config)
             if discovery_result and discovery_result.get("lights"):
@@ -715,7 +706,7 @@ def _get_config_path() -> str:
         # Debug: log the converted hue config
         hue_conv = nested_config.get("hue_entertainment_group", {})
         hue_conv_debug = {k: ("***" if k in ("_client_key",) else v) for k, v in hue_conv.items()}
-        logger.warning(f"Converted Hue config for runtime: {hue_conv_debug}")
+        logger.info(f"Converted Hue config for runtime: {hue_conv_debug}")
         # Write converted config to a temp location
         converted_path = "/tmp/ambihue_config.yaml"
         with open(converted_path, "w", encoding="utf-8") as f:

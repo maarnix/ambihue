@@ -83,5 +83,5 @@ LABEL \
     io.hass.name="ambihue" \
     io.hass.arch="$TARGETPLATFORM" \
     io.hass.type="addon" \
-    io.hass.version="1.3.4" \
+    io.hass.version="1.4.0" \
     maintainer="maarnix"

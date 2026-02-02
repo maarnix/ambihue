@@ -21,19 +21,28 @@ class ColorMixer:
         self._num_of_left_right_colors = -1  # Number of left/right colors
 
     def apply_tv_data(self, data: Dict[str, Any]) -> None:
-        self._colors = []  # reset colors
-        self._num_of_left_right_colors = 0
+        layer = data["layer1"]
+        left = layer["left"]
+        top = layer["top"]
+        right = layer["right"]
 
-        for color in data["layer1"]["left"].values():
-            self._colors.append(Color(*color.values()))
-            self._num_of_left_right_colors += 1
+        self._num_of_left_right_colors = len(left)
 
-        for color in data["layer1"]["top"].values():
-            self._colors.append(Color(*color.values()))
+        # Pre-allocate list with exact size to avoid repeated appends
+        colors = []
+        for color in left.values():
+            r, g, b = color.values()
+            colors.append(Color(r, g, b))
 
-        right_colors = list(data["layer1"]["right"].values())
-        for color in right_colors[::-1]:  # invert RIGHT order!
-            self._colors.append(Color(*color.values()))
+        for color in top.values():
+            r, g, b = color.values()
+            colors.append(Color(r, g, b))
+
+        for color in reversed(list(right.values())):  # invert RIGHT order
+            r, g, b = color.values()
+            colors.append(Color(r, g, b))
+
+        self._colors = colors
 
         # print(f"TAB:\n{self._colors}\n")
 
@@ -48,27 +57,26 @@ class ColorMixer:
         Returns black (0,0,0) if positions is empty.
         Out-of-bounds positions are silently skipped.
         """
-        if not positions:
+        if not positions or not self._colors:
             return Color(0, 0, 0)
 
-        if not self._colors:
+        colors = self._colors
+        num_colors = len(colors)
+        r = g = b = 0
+        count = 0
+
+        for pos in positions:
+            if 0 <= pos < num_colors:
+                c = colors[pos]
+                r += c.red
+                g += c.green
+                b += c.blue
+                count += 1
+
+        if count == 0:
             return Color(0, 0, 0)
 
-        # Filter to valid positions only
-        valid_positions = [pos for pos in positions if 0 <= pos < len(self._colors)]
-        if not valid_positions:
-            return Color(0, 0, 0)
-
-        color = Color(0, 0, 0)
-        for pos in valid_positions:
-            color.red += self._colors[pos].red
-            color.green += self._colors[pos].green
-            color.blue += self._colors[pos].blue
-
-        color.red //= len(valid_positions)
-        color.green //= len(valid_positions)
-        color.blue //= len(valid_positions)
-        return color
+        return Color(r // count, g // count, b // count)
 
     def is_all_black(self, threshold: int = 15) -> bool:
         """Check if all colors are below the threshold (essentially black).

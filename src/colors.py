@@ -9,11 +9,9 @@ logger = logging.getLogger(__name__)
 
 
 class Color:
-    def __init__(self, red: int, green: int, blue: int):
-        assert isinstance(red, int) and 0 <= red <= 255, "Value must be an integer 0-255"
-        assert isinstance(green, int) and 0 <= green <= 255, "Value must be an integer 0-255"
-        assert isinstance(blue, int) and 0 <= blue <= 255, "Value must be an integer 0-255"
+    __slots__ = ("red", "green", "blue")
 
+    def __init__(self, red: int, green: int, blue: int):
         self.red = red
         self.green = green
         self.blue = blue

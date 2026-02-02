@@ -390,13 +390,13 @@ def discover_tv_from_ha() -> Optional[str]:
         logger.warning("No SUPERVISOR_TOKEN found - HA API discovery unavailable")
         # Log available env vars for debugging (keys only, no values)
         ha_vars = [k for k in os.environ if "HA" in k.upper() or "SUPER" in k.upper() or "HASS" in k.upper()]
-        logger.warning(f"Available HA env vars: {ha_vars}")
+        logger.debug(f"Available HA env vars: {ha_vars}")
         return None
 
     try:
         import websocket  # websocket-client
 
-        logger.warning("Querying Home Assistant for Philips TV devices...")
+        logger.info("Querying Home Assistant for Philips TV devices...")
 
         ws = websocket.create_connection(
             "ws://supervisor/core/websocket",
@@ -413,7 +413,7 @@ def discover_tv_from_ha() -> Optional[str]:
             ws.close()
             return None
 
-        logger.warning("Connected to HA, querying philips_js config entries...")
+        logger.info("Connected to HA, querying philips_js config entries...")
 
         # Query config entries for philips_js integration
         ws.send(_json.dumps({
@@ -434,7 +434,7 @@ def discover_tv_from_ha() -> Optional[str]:
             data = entry.get("data", {})
             host = data.get("host")
             if host:
-                logger.warning(f"Found Philips TV in HA: {host} ({entry.get('title', 'unknown')})")
+                logger.info(f"Found Philips TV in HA: {host} ({entry.get('title', 'unknown')})")
                 return host
 
         logger.warning("Philips TV found in HA but no host in config data")
@@ -551,14 +551,14 @@ def _poll_ha_config_for_pin(timeout_seconds: int = 120) -> str:
                 tv_opts = options.get("data", options).get("ambilight_tv", {})
                 pin = tv_opts.get("pairing_pin", "")
                 if pin:
-                    logger.warning(f"PIN received from config!")
+                    logger.info("PIN received from config")
                     return pin
         except Exception as e:
             logger.debug(f"Config poll error: {e}")
 
         remaining = timeout_seconds - (attempt + 1) * poll_interval
         if remaining > 0:
-            logger.warning(f"Waiting for PIN... ({remaining}s remaining)")
+            logger.info(f"Waiting for PIN... ({remaining}s remaining)")
         time.sleep(poll_interval)
 
     logger.warning("PIN entry timed out")
@@ -613,7 +613,7 @@ def _save_pairing_state(pairing_state: Dict[str, Any]) -> None:
     try:
         with open(state_path, "w", encoding="utf-8") as f:
             json.dump(state, f, indent=2)
-        logger.warning("Saved TV pairing state to state file")
+        logger.info("Saved TV pairing state to state file")
     except OSError as e:
         logger.error(f"Failed to save pairing state: {e}")
 
@@ -679,10 +679,10 @@ def handle_tv_pairing(
             saved_state = _load_pairing_state()
 
             if saved_state and saved_state.get("auth_key"):
-                logger.warning("Using saved pairing state with PIN from config...")
+                logger.info("Using saved pairing state with PIN from config...")
                 try:
                     user, password = pairing.grant_pairing(saved_state, pairing_pin)
-                    logger.warning("TV paired successfully!")
+                    logger.info("TV paired successfully!")
                     _clear_pairing_state()
                     return (user, password)
                 except RuntimeError as e:
@@ -717,9 +717,9 @@ def handle_tv_pairing(
 
         if entered_pin and pairing_state.get("auth_key"):
             # User entered PIN via stdin - grant immediately
-            logger.warning("Completing pairing with entered PIN...")
+            logger.info("Completing pairing with entered PIN...")
             user, password = pairing.grant_pairing(pairing_state, entered_pin)
-            logger.warning("TV paired successfully!")
+            logger.info("TV paired successfully!")
             _clear_pairing_state()
             return (user, password)
 

@@ -42,14 +42,22 @@ class AmbiHueMain:
         self._idle_refresh_rate_ms = tv_config.get("idle_refresh_rate_ms", 1000)
         self._idle_refresh_rate_s = self._idle_refresh_rate_ms / 1000.0
 
-        self._previous_time = time.time()
-
         # Hue will be initialized after TV is ready
         self._hue = None
 
         # Black screen timeout: tear down session after this many seconds of black
         self._black_screen_timeout_s = tv_config.get("black_screen_timeout_s", 30)
         self._black_since: Optional[float] = None  # timestamp when screen went black
+
+        # Color transition smoothing (exponential moving average)
+        # 0.0 = no smoothing (instant), 1.0 = maximum smoothing (very slow)
+        self._smoothing_factor = max(0.0, min(tv_config.get("transition_smoothing", 0.5), 0.95))
+        self._smoothing_factor_inv = 1.0 - self._smoothing_factor  # pre-compute
+        self._previous_colors: Dict[str, tuple] = {}  # light_name -> (r, g, b) floats
+        self._last_sent: Dict[str, tuple] = {}  # light_name -> (r, g, b) ints actually sent
+
+        # Cache debug state to avoid per-frame log level checks
+        self._is_debug = logger.getEffectiveLevel() <= logging.DEBUG
 
         # Status reporting
         self._frame_count = 0
@@ -92,15 +100,6 @@ class AmbiHueMain:
 
             return None  # return None if an error occurs
 
-    def _debug_log_time(self, msg: str) -> None:
-        if logger.getEffectiveLevel() > logging.DEBUG:
-            return  # skip if debug logging is not enabled
-
-        current_time = time.time()
-        elapsed_time = int((current_time - self._previous_time) * 1000)  # convert to ms
-        logger.warning(f"[{msg}] elapsed time: {elapsed_time} ms")
-        self._previous_time = current_time
-
     def _log_status(self) -> None:
         """Log periodic status update every status_interval_s seconds."""
         current_time = time.time()
@@ -139,24 +138,24 @@ class AmbiHueMain:
                 current_refresh_rate = self._idle_refresh_rate_s
             else:
                 current_refresh_rate = self._refresh_rate_s
-            sleep(current_refresh_rate)
-            self._debug_log_time("sleep")
+            if current_refresh_rate > 0:
+                sleep(current_refresh_rate)
 
-            # Periodic status logging
-            self._log_status()
+            # Periodic status logging (check every 100 frames to avoid per-frame time.time())
+            if self._frame_count % 100 == 0:
+                self._log_status()
 
             tv_data = self._read_tv()
             if tv_data is None:
                 continue  # skip this loop if TV data is not available this time
-            self._debug_log_time("read_tv")
 
             self._mixer.apply_tv_data(tv_data)
-            self._mixer.print_colors()
-            self._debug_log_time("print_colors")
+
+            if self._is_debug:
+                self._mixer.print_colors()
 
             # Check if TV screen is all black (no content playing)
             is_black = self._mixer.is_all_black()
-            logger.debug(f"is_all_black() returned: {is_black}")
 
             if is_black:
                 if self._tv_has_content:
@@ -176,6 +175,8 @@ class AmbiHueMain:
                             del self._hue
                             self._hue = None
                             self._black_since = None
+                            self._previous_colors.clear()
+                            self._last_sent.clear()
                             continue
 
                     # Fallback: tear down after timeout even if powerstate check fails
@@ -184,6 +185,8 @@ class AmbiHueMain:
                         del self._hue
                         self._hue = None
                         self._black_since = None
+                        self._previous_colors.clear()
+                        self._last_sent.clear()
 
                 continue  # skip - don't start session or send colors for black screen
 
@@ -225,13 +228,33 @@ class AmbiHueMain:
 
             for light_name, light_data in self._light_setup.items():
                 color = self._mixer.get_average_color(light_data["positions"])
-                self._hue.set_color(light_data["id"], color.get_tuple())
+                new_rgb = (float(color.red), float(color.green), float(color.blue))
 
-                print_color = color.get_css_color_name_colored()
-                logger.debug(f"Light: {light_name} - {print_color} - {light_data} ")
+                # Apply exponential smoothing
+                if self._smoothing_factor > 0 and light_name in self._previous_colors:
+                    prev = self._previous_colors[light_name]
+                    f = self._smoothing_factor
+                    fi = self._smoothing_factor_inv
+                    smoothed = (
+                        prev[0] * f + new_rgb[0] * fi,
+                        prev[1] * f + new_rgb[1] * fi,
+                        prev[2] * f + new_rgb[2] * fi,
+                    )
+                else:
+                    smoothed = new_rgb
+
+                self._previous_colors[light_name] = smoothed
+                out = (int(round(smoothed[0])), int(round(smoothed[1])), int(round(smoothed[2])))
+
+                # Skip if color hasn't changed since last send
+                if out != self._last_sent.get(light_name):
+                    self._hue.set_color(light_data["id"], out)
+                    self._last_sent[light_name] = out
+
+                if self._is_debug:
+                    logger.debug(f"Light: {light_name} - rgb{out} - {light_data} ")
 
             self._frame_count += 1
-            self._debug_log_time("set_color_x_lights")
 
     def _exit(self, exit_code: int = 0) -> None:
         """Exit the AmbiHue application."""

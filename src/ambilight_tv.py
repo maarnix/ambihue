@@ -113,27 +113,15 @@ class AmbilightTV:
             pass
         return ""
 
-    def get_ambilight_raw(self) -> Any:
-        # logger.debug(f"Sending GET request to:\n{self._full_path}")
-        # HTTPX is faster than requests: 55ms vs 90ms
+    def get_ambilight_json(self) -> Dict[str, Any]:
         try:
-            # _time = time.time()
             response = self._client.get(self._full_path, timeout=0.2)
-            # elapsed_time = int((time.time() - _time) * 1000)  # convert to ms
-            # logger.debug(f"[tv_get_request] elapsed time: {elapsed_time} ms")
         except httpx.RequestError as err:
             raise RuntimeError(err) from err
 
-        return response.text
-
-    def get_ambilight_json(self) -> Dict[str, Any]:
-        response_text = self.get_ambilight_raw()
-
         try:
-            data = json.loads(response_text)
-            assert isinstance(data, dict), "Response is not a JSON object"
-            # logger.debug(f"data:\n{data}\n")
-        except json.JSONDecodeError as err:
-            logger.error(f"Decoding JSON error:\n{response_text}")
-            raise err
+            data = response.json()
+        except (json.JSONDecodeError, ValueError) as err:
+            logger.error(f"Decoding JSON error:\n{response.text}")
+            raise json.JSONDecodeError("Invalid JSON", response.text, 0) from err
         return data

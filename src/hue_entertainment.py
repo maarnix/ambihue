@@ -77,7 +77,7 @@ class HueEntertainmentGroupKit:
     def __del__(self) -> None:
         if not hasattr(self, "_streaming"):
             return
-        logger.warning("Stop streaming in 10s ...")
+        logger.info("Stopping streaming session...")
 
         # For the purpose of example sleep is used for all inputs to process before stop_stream is
         # called
@@ -127,18 +127,18 @@ def _discover_bridge_ip_via_portal() -> Optional[str]:
     import httpx
 
     try:
-        logger.warning("Querying Philips discovery portal (discovery.meethue.com)...")
+        logger.info("Querying Philips discovery portal (discovery.meethue.com)...")
         response = httpx.get("https://discovery.meethue.com/", timeout=10.0)
-        logger.warning(f"Discovery portal response: {response.status_code}")
+        logger.debug(f"Discovery portal response: {response.status_code}")
 
         if response.status_code == 200:
             bridges = response.json()
-            logger.warning(f"Discovery portal found {len(bridges)} bridge(s)")
+            logger.info(f"Discovery portal found {len(bridges)} bridge(s)")
 
             if bridges and len(bridges) > 0:
                 ip = bridges[0].get("internalipaddress")
                 if ip:
-                    logger.warning(f"Found Hue Bridge via discovery portal: {ip}")
+                    logger.info(f"Found Hue Bridge via discovery portal: {ip}")
                     return ip
                 else:
                     logger.warning("Bridge found but no IP address in response")
@@ -196,7 +196,7 @@ def _pair_bridge_directly(ip: str) -> Optional[Dict[str, Any]]:
                     client_key = success.get("clientkey", "")
 
                     if username and client_key:
-                        logger.warning(f"Successfully paired with Hue Bridge at {ip}")
+                        logger.info(f"Successfully paired with Hue Bridge at {ip}")
 
                         # Get bridge config for additional info
                         config_resp = httpx.get(
@@ -229,7 +229,7 @@ def _pair_bridge_directly(ip: str) -> Optional[Dict[str, Any]]:
                 if "error" in item:
                     error = item["error"]
                     if error.get("type") == 101:
-                        logger.warning("Waiting for bridge button press...")
+                        logger.info("Waiting for bridge button press...")
                     else:
                         logger.warning(f"Bridge error: {error.get('description', 'unknown')}")
 
@@ -266,18 +266,18 @@ def pair_hue_bridge(timeout_seconds: int = 30) -> Dict[str, Any]:
     logger.warning("=" * 60)
 
     # First, try to find bridge IP via HTTP portal (works in Docker)
-    logger.warning("Searching for Hue Bridge via discovery portal...")
+    logger.info("Searching for Hue Bridge via discovery portal...")
     bridge_ip = _discover_bridge_ip_via_portal()
 
     if bridge_ip:
-        logger.warning(f"Found bridge at {bridge_ip}, waiting for button press...")
+        logger.info(f"Found bridge at {bridge_ip}, waiting for button press...")
     else:
         logger.warning("Discovery portal didn't find bridge, will try mDNS fallback")
 
     attempts = timeout_seconds // 5  # Poll every 5 seconds
 
     for attempt in range(attempts):
-        logger.warning(f"Pairing attempt {attempt + 1}/{attempts}...")
+        logger.info(f"Pairing attempt {attempt + 1}/{attempts}...")
 
         # Method 1: Direct HTTP pairing (preferred - works in Docker)
         if bridge_ip:
@@ -417,7 +417,7 @@ def discover_and_log_lights(bridge_config: Dict[str, Any]) -> Optional[Dict[str,
             bridge_config["_username"],
         )
         if light_names:
-            logger.warning(f"Fetched {len(light_names)} light/device names from bridge")
+            logger.info(f"Fetched {len(light_names)} light/device names from bridge")
 
         logger.warning("=" * 60)
         logger.warning("ENTERTAINMENT ZONES DISCOVERED")

@@ -37,6 +37,7 @@ ambilight_tv:
   power_on_time_s: 8              # Grace period for TV boot
   refresh_rate_ms: 50             # Update rate when syncing (10-50ms recommended)
   idle_refresh_rate_ms: 5000      # Poll rate when TV idle (1000-5000ms)
+  transition_smoothing: 0.5       # Color smoothing: 0.0 = instant, 0.9 = very smooth
 
 hue_entertainment_group:
   # Auto-filled after pressing Bridge button and starting AmbiHue
