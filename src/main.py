@@ -6,7 +6,7 @@ from pathlib import Path
 from time import sleep
 from typing import Any, Dict, Optional, Union
 
-from src.ambilight_tv import AmbilightTV  # TODO install
+from src.ambilight_tv import AmbilightTV
 from src.color_mixer import ColorMixer
 from src.config_loader import ConfigLoader
 from src.hue_entertainment import HueEntertainmentGroupKit, detect_hue_entertainment
@@ -22,14 +22,47 @@ class AmbiHueMain:
         self._config_loader = ConfigLoader(config_path)
 
         self._tv = AmbilightTV(self._config_loader.get_ambilight_tv())
-        self._hue = HueEntertainmentGroupKit(self._config_loader.get_hue_entertainment())
         self._mixer = ColorMixer()
 
         self._light_setup = self._config_loader.get_lights_setup()
 
         self._tv_error_cnt = 0
+        self._tv_is_online = True  # Track TV state
+        self._tv_has_content = True  # Track if TV is showing actual content (not all black)
 
-        self._previous_time = time.time()
+        # Get runtime error threshold from config
+        tv_config = self._config_loader.get_ambilight_tv()
+        self._runtime_error_threshold = tv_config.get("runtime_error_threshold", 10)
+
+        # Get refresh rate from config (in milliseconds)
+        self._refresh_rate_ms = tv_config.get("refresh_rate_ms", 10)
+        self._refresh_rate_s = self._refresh_rate_ms / 1000.0
+
+        # Get idle refresh rate from config (when TV is black/off)
+        self._idle_refresh_rate_ms = tv_config.get("idle_refresh_rate_ms", 1000)
+        self._idle_refresh_rate_s = self._idle_refresh_rate_ms / 1000.0
+
+        # Hue will be initialized after TV is ready
+        self._hue = None
+
+        # Black screen timeout: tear down session after this many seconds of black
+        self._black_screen_timeout_s = tv_config.get("black_screen_timeout_s", 30)
+        self._black_since: Optional[float] = None  # timestamp when screen went black
+
+        # Color transition smoothing (exponential moving average)
+        # 0.0 = no smoothing (instant), 1.0 = maximum smoothing (very slow)
+        self._smoothing_factor = max(0.0, min(tv_config.get("transition_smoothing", 0.5), 0.95))
+        self._smoothing_factor_inv = 1.0 - self._smoothing_factor  # pre-compute
+        self._previous_colors: Dict[str, tuple] = {}  # light_name -> (r, g, b) floats
+        self._last_sent: Dict[str, tuple] = {}  # light_name -> (r, g, b) ints actually sent
+
+        # Cache debug state to avoid per-frame log level checks
+        self._is_debug = logger.getEffectiveLevel() <= logging.DEBUG
+
+        # Status reporting
+        self._frame_count = 0
+        self._last_status_time = time.time()
+        self._status_interval_s = 60  # Report status every 60 seconds
 
     def _read_tv(self) -> Optional[Dict[str, Any]]:
         """Read the Ambilight TV data.
@@ -41,64 +74,193 @@ class AmbiHueMain:
         """
         try:
             tv_data = self._tv.get_ambilight_json()
+
+            # TV came back online
+            if not self._tv_is_online:
+                logger.info("TV connection restored!")
+                self._tv_is_online = True
+
             self._tv_error_cnt = 0  # reset error count on success
             return tv_data
 
-        except JSONDecodeError as err:
+        except (JSONDecodeError, RuntimeError) as err:
             self._tv_error_cnt += 1
-            logger.error(f"Decoding JSON error: {err}")
 
-        except RuntimeError as err:
-            self._tv_error_cnt += 1
-            logger.error(f"Request error: {err}")
+            # Log only on state transition
+            if self._tv_is_online:
+                logger.warning(f"TV connection lost: {err}")
+                self._tv_is_online = False
+            elif self._tv_error_cnt % 100 == 0:
+                # Log every ~1 second during extended offline period
+                logger.debug(f"TV still offline (error count: {self._tv_error_cnt})")
 
-        # Error handling for TV data
-        if self._tv_error_cnt > 10:
-            self._exit(10)  # exit if TV is not reachable for too long
+            # Exit if threshold is set and reached
+            if self._runtime_error_threshold > 0 and self._tv_error_cnt > self._runtime_error_threshold:
+                self._exit(10)
 
-        return None  # return None if an error occurs
+            return None  # return None if an error occurs
 
-    def _debug_log_time(self, msg: str) -> None:
-        if logger.getEffectiveLevel() > logging.DEBUG:
-            return  # skip if debug logging is not enabled
-
+    def _log_status(self) -> None:
+        """Log periodic status update every status_interval_s seconds."""
         current_time = time.time()
-        elapsed_time = int((current_time - self._previous_time) * 1000)  # convert to ms
-        logger.warning(f"[{msg}] elapsed time: {elapsed_time} ms")
-        self._previous_time = current_time
+        elapsed = current_time - self._last_status_time
+
+        if elapsed < self._status_interval_s:
+            return  # not time yet
+
+        if self._tv_has_content and self._frame_count > 0:
+            # Streaming mode - report achieved Hz
+            hz = self._frame_count / elapsed
+            logger.warning(f"Status: Streaming at {hz:.1f} Hz ({self._frame_count} frames in {elapsed:.0f}s)")
+        elif self._hue is not None:
+            # Session active but screen is black
+            logger.warning("Status: Session active - TV screen is black")
+        else:
+            # Waiting for first TV data
+            logger.warning("Status: Idle mode - waiting for TV content")
+
+        # Reset counters
+        self._frame_count = 0
+        self._last_status_time = current_time
 
     def run(self) -> None:
         """Run the main loop of the AmbiHue application."""
         self._tv.wait_for_startup()
-        logger.info("Starting AmbiHue application...")
+        logger.info("TV is ready, waiting for content before starting Hue Entertainment...")
+
+        # Don't initialize Hue connection until TV has actual content
+        self._hue = None
+        logger.info("Starting AmbiHue application in polling mode...")
 
         while True:  # while true
-            sleep(0.01)
-            self._debug_log_time("sleep")
+            # Use idle refresh rate when no session or screen is black, normal rate when streaming
+            if self._hue is None or not self._tv_has_content:
+                current_refresh_rate = self._idle_refresh_rate_s
+            else:
+                current_refresh_rate = self._refresh_rate_s
+            if current_refresh_rate > 0:
+                sleep(current_refresh_rate)
+
+            # Periodic status logging (check every 100 frames to avoid per-frame time.time())
+            if self._frame_count % 100 == 0:
+                self._log_status()
 
             tv_data = self._read_tv()
             if tv_data is None:
                 continue  # skip this loop if TV data is not available this time
-            self._debug_log_time("read_tv")
 
             self._mixer.apply_tv_data(tv_data)
-            self._mixer.print_colors()
-            self._debug_log_time("print_colors")
+
+            if self._is_debug:
+                self._mixer.print_colors()
+
+            # Check if TV screen is all black (no content playing)
+            is_black = self._mixer.is_all_black()
+
+            if is_black:
+                if self._tv_has_content:
+                    logger.info("TV screen is black, pausing light updates")
+                    self._tv_has_content = False
+                    self._black_since = time.time()
+
+                # Check if we should tear down an active session
+                if self._hue is not None and self._black_since is not None:
+                    black_duration = time.time() - self._black_since
+
+                    # Check TV power state after 5s of black to detect standby
+                    if black_duration >= 5:
+                        powerstate = self._tv.get_powerstate()
+                        if powerstate and powerstate != "On":
+                            logger.warning(f"TV power state: {powerstate}, stopping Entertainment session")
+                            del self._hue
+                            self._hue = None
+                            self._black_since = None
+                            self._previous_colors.clear()
+                            self._last_sent.clear()
+                            continue
+
+                    # Fallback: tear down after timeout even if powerstate check fails
+                    if black_duration >= self._black_screen_timeout_s:
+                        logger.warning(f"Black screen for {int(black_duration)}s, stopping Entertainment session")
+                        del self._hue
+                        self._hue = None
+                        self._black_since = None
+                        self._previous_colors.clear()
+                        self._last_sent.clear()
+
+                continue  # skip - don't start session or send colors for black screen
+
+            # Screen has content - reset black tracking
+            if not self._tv_has_content:
+                logger.info("TV content resumed")
+            self._tv_has_content = True
+            self._black_since = None
+
+            # Start Entertainment session when we have actual content
+            if self._hue is None:
+                num_zones = self._mixer.num_colors
+                logger.warning(f"TV content detected ({num_zones} ambilight zones), starting Entertainment session...")
+
+                # Check if any light has out-of-range positions and reassign if needed
+                has_out_of_range = False
+                for light_data in self._light_setup.values():
+                    positions = light_data.get("positions", [])
+                    if any(p >= num_zones for p in positions):
+                        has_out_of_range = True
+                        break
+
+                if has_out_of_range:
+                    logger.warning(f"Reassigning light positions for {num_zones}-zone TV...")
+                    lights = list(self._light_setup.keys())
+                    chunk_size = num_zones / len(lights)
+                    for i, light_name in enumerate(lights):
+                        start = int(round(i * chunk_size))
+                        end = int(round((i + 1) * chunk_size))
+                        new_positions = list(range(start, end))
+                        self._light_setup[light_name]["positions"] = new_positions
+                        logger.warning(f"  {light_name}: positions {new_positions}")
+                else:
+                    for light_name, light_data in self._light_setup.items():
+                        logger.warning(f"  {light_name}: positions {light_data.get('positions', [])}")
+
+                self._hue = HueEntertainmentGroupKit(self._config_loader.get_hue_entertainment())
+                logger.warning("Entertainment session started")
 
             for light_name, light_data in self._light_setup.items():
                 color = self._mixer.get_average_color(light_data["positions"])
-                self._hue.set_color(light_data["id"], color.get_tuple())
+                new_rgb = (float(color.red), float(color.green), float(color.blue))
 
-                print_color = color.get_css_color_name_colored()
-                logger.info(f"Light: {light_name} - {print_color} - {light_data} ")
+                # Apply exponential smoothing
+                if self._smoothing_factor > 0 and light_name in self._previous_colors:
+                    prev = self._previous_colors[light_name]
+                    f = self._smoothing_factor
+                    fi = self._smoothing_factor_inv
+                    smoothed = (
+                        prev[0] * f + new_rgb[0] * fi,
+                        prev[1] * f + new_rgb[1] * fi,
+                        prev[2] * f + new_rgb[2] * fi,
+                    )
+                else:
+                    smoothed = new_rgb
 
-            logger.info("\n\n")
-            self._debug_log_time("set_color_x_lights")
+                self._previous_colors[light_name] = smoothed
+                out = (int(round(smoothed[0])), int(round(smoothed[1])), int(round(smoothed[2])))
+
+                # Skip if color hasn't changed since last send
+                if out != self._last_sent.get(light_name):
+                    self._hue.set_color(light_data["id"], out)
+                    self._last_sent[light_name] = out
+
+                if self._is_debug:
+                    logger.debug(f"Light: {light_name} - rgb{out} - {light_data} ")
+
+            self._frame_count += 1
 
     def _exit(self, exit_code: int = 0) -> None:
         """Exit the AmbiHue application."""
         logger.warning(f"Exiting AmbiHue application {exit_code}.")
-        del self._hue
+        if self._hue is not None:
+            del self._hue
         del self._tv
         sys.exit(exit_code)
 

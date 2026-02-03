@@ -1,4 +1,5 @@
 argcomplete # script's args
+websocket-client  # HA WebSocket API (discover devices from HA registry)
 pyyaml # config files
 types-pyyaml  # typing for pyyaml
 webcolors  # get names for RGB colors

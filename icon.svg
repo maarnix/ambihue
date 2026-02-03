@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="256" height="256" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="256" height="256" fill="#1a1a2e" rx="32"/>
+
+  <!-- TV Screen with Ambilight glow -->
+  <defs>
+    <linearGradient id="ambilightGlow" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#ff00ff;stop-opacity:0.8"/>
+      <stop offset="33%" style="stop-color:#00ffff;stop-opacity:0.8"/>
+      <stop offset="66%" style="stop-color:#ffff00;stop-opacity:0.8"/>
+      <stop offset="100%" style="stop-color:#ff00ff;stop-opacity:0.8"/>
+    </linearGradient>
+
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="4" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Ambilight glow effect around TV -->
+  <rect x="48" y="68" width="160" height="100" fill="none" stroke="url(#ambilightGlow)" stroke-width="8" rx="4" filter="url(#glow)"/>
+
+  <!-- TV Screen -->
+  <rect x="60" y="80" width="136" height="76" fill="#0f3460" rx="4"/>
+  <rect x="66" y="86" width="124" height="64" fill="#16213e"/>
+
+  <!-- TV Stand -->
+  <rect x="110" y="156" width="36" height="4" fill="#e94560"/>
+  <rect x="90" y="160" width="76" height="8" fill="#e94560" rx="2"/>
+
+  <!-- Hue Bridge Light bulbs (3 bulbs with colored glow) -->
+  <g id="bulbs">
+    <!-- Left bulb - Blue -->
+    <circle cx="70" cy="200" r="18" fill="#4A90E2" opacity="0.9"/>
+    <circle cx="70" cy="200" r="22" fill="#4A90E2" opacity="0.3"/>
+    <path d="M 70 218 L 68 228 L 72 228 Z" fill="#E0E0E0"/>
+    <rect x="67" y="228" width="6" height="3" fill="#B0B0B0" rx="1"/>
+
+    <!-- Middle bulb - Purple -->
+    <circle cx="128" cy="200" r="18" fill="#9B59B6" opacity="0.9"/>
+    <circle cx="128" cy="200" r="22" fill="#9B59B6" opacity="0.3"/>
+    <path d="M 128 218 L 126 228 L 130 228 Z" fill="#E0E0E0"/>
+    <rect x="125" y="228" width="6" height="3" fill="#B0B0B0" rx="1"/>
+
+    <!-- Right bulb - Orange -->
+    <circle cx="186" cy="200" r="18" fill="#E67E22" opacity="0.9"/>
+    <circle cx="186" cy="200" r="22" fill="#E67E22" opacity="0.3"/>
+    <path d="M 186 218 L 184 228 L 188 228 Z" fill="#E0E0E0"/>
+    <rect x="183" y="228" width="6" height="3" fill="#B0B0B0" rx="1"/>
+  </g>
+
+  <!-- Connection arrows -->
+  <defs>
+    <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+      <polygon points="0 0, 10 3, 0 6" fill="#00d9ff"/>
+    </marker>
+  </defs>
+
+  <!-- Arrow from TV to lights -->
+  <path d="M 128 168 Q 128 180 128 190" stroke="#00d9ff" stroke-width="3" fill="none" marker-end="url(#arrowhead)" opacity="0.8"/>
+
+  <!-- Small sync icon in corner -->
+  <g transform="translate(215, 25)">
+    <circle cx="0" cy="0" r="16" fill="#00d9ff" opacity="0.2"/>
+    <path d="M -6 -4 L -6 -8 L -10 -8 L -4 -14 L 2 -8 L -2 -8 L -2 -4 Z" fill="#00d9ff"/>
+    <path d="M 6 4 L 6 8 L 10 8 L 4 14 L -2 8 L 2 8 L 2 4 Z" fill="#00d9ff"/>
+  </g>
+</svg>

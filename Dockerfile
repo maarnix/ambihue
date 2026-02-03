@@ -70,17 +70,18 @@ FROM build_base AS final
 
 # Copy ambihue # sync with 54-55
 COPY src /src
-COPY ambihue.py pyproject.toml /
+COPY ambihue.py run.sh pyproject.toml /
 
 # Install ambihue
-RUN pip install --no-cache-dir .
+RUN pip install --no-cache-dir . \
+    && chmod a+x /run.sh
 
-CMD [ "/ambihue.py" ]
+CMD [ "/run.sh" ]
 
 # Labels
 LABEL \
     io.hass.name="ambihue" \
     io.hass.arch="$TARGETPLATFORM" \
     io.hass.type="addon" \
-    io.hass.version="1.2.0" \
-    maintainer="klimak000"
+    io.hass.version="2.0.0" \
+    maintainer="maarnix"

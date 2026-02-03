@@ -1,74 +1,72 @@
 ---
 name: AmbiHue
-version: "1.2.0"
+version: "2.0.0"
 slug: ambihue
 description: "ambihue = Ambilight and Hue connected again!"
-url: https://github.com/klimak000/ambihue
+url: https://github.com/maarnix/ambihue
 arch:
   - aarch64
   - amd64
   - armv7
-ports:
-  "1926/tcp": 1926
-  "8080/tcp": 8080
+init: false
+boot: manual
+panel_icon: mdi:television-ambient-light
+host_network: true
+hassio_api: true
+homeassistant_api: true
+auth_api: true
+
 options:
   ambilight_tv:
     protocol: "https://"
-    ip: "replace_me"
-    port: "1926"
-    api_version: "6"
-    path: "ambilight/processed"
-    wait_for_startup_s: 29
-    power_on_time_s: 8
+    ip: "192.168.1.X"
+    port: 1926
+    api_version: 6
+    user: ""
+    password: ""
+    pairing_pin: ""
+    refresh_rate_ms: 0
+    idle_refresh_rate_ms: 5000
+    transition_smoothing: 0.5
   hue_entertainment_group:
-    _identification: "replace_me"
-    _rid: "replace_me"
-    _ip_address: "replace_me"
-    _swversion: 1972004020
-    _username: "replace_me"
-    _hue_app_id: "replace_me"
-    _client_key: "replace_me"
-    _name: "Hue Bridge"
+    ip: "192.168.1.X"
+    identification: "replace_me"
+    rid: "replace_me"
+    username: "replace_me"
+    app_id: "replace_me"
+    client_key: "replace_me"
+    swversion: 1972004020
     index: 0
   lights_setup:
-    A_name: "refer to README.md and example config"
-    A_id: 0
-    A_positions: [1]
+    - name: "light1"
+      id: 0
+      positions: "0,1,2"
+    - name: "light2"
+      id: 1
+      positions: "3,4,5"
+
 schema:
   ambilight_tv:
-    protocol: "str"
-    ip: "str"
-    port: "str"
-    api_version: "str"
-    path: "str"
-    wait_for_startup_s: "int"
-    power_on_time_s: "int"
+    protocol: str
+    ip: str
+    port: int
+    api_version: int
+    user: str?
+    password: str?
+    pairing_pin: str?
+    refresh_rate_ms: int
+    idle_refresh_rate_ms: int
+    transition_smoothing: "float?"
   hue_entertainment_group:
-    _identification: "str"
-    _rid: "str"
-    _ip_address: "str"
-    _swversion: "int"
-    _username: "str"
-    _hue_app_id: "str"
-    _client_key: "str"
-    _name: "str"
-    index: "int"
+    ip: str
+    identification: str
+    rid: str
+    username: str
+    app_id: str
+    client_key: str
+    swversion: int
+    index: int
   lights_setup:
-    A_name: "str"
-    A_id: "int"
-    A_positions:
-      - "int"
-    B_name: "str"
-    B_id: "int"
-    B_positions:
-      - "int"
-    C_name: "str"
-    C_id: "int"
-    C_positions:
-      - "int"
-    D_name: "str"
-    D_id: "int"
-    D_positions:
-      - "int"
-init: false
-boot: manual
+    - name: str
+      id: int
+      positions: str

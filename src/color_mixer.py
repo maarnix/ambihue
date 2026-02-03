@@ -21,41 +21,79 @@ class ColorMixer:
         self._num_of_left_right_colors = -1  # Number of left/right colors
 
     def apply_tv_data(self, data: Dict[str, Any]) -> None:
-        self._colors = []  # reset colors
-        self._num_of_left_right_colors = 0
+        layer = data["layer1"]
+        left = layer["left"]
+        top = layer["top"]
+        right = layer["right"]
 
-        for color in data["layer1"]["left"].values():
-            self._colors.append(Color(*color.values()))
-            self._num_of_left_right_colors += 1
+        self._num_of_left_right_colors = len(left)
 
-        for color in data["layer1"]["top"].values():
-            self._colors.append(Color(*color.values()))
+        # Pre-allocate list with exact size to avoid repeated appends
+        colors = []
+        for color in left.values():
+            r, g, b = color.values()
+            colors.append(Color(r, g, b))
 
-        right_colors = list(data["layer1"]["right"].values())
-        for color in right_colors[::-1]:  # invert RIGHT order!
-            self._colors.append(Color(*color.values()))
+        for color in top.values():
+            r, g, b = color.values()
+            colors.append(Color(r, g, b))
+
+        for color in reversed(list(right.values())):  # invert RIGHT order
+            r, g, b = color.values()
+            colors.append(Color(r, g, b))
+
+        self._colors = colors
 
         # print(f"TAB:\n{self._colors}\n")
 
+    @property
+    def num_colors(self) -> int:
+        """Return the total number of color zones available from the TV."""
+        return len(self._colors)
+
     def get_average_color(self, positions: List[int]) -> Color:
-        """Calculate the average color from the collected colors."""
-        assert self._colors, "Colors have not been set yet."
-        assert isinstance(positions, list)
-        assert all(isinstance(pos, int) for pos in positions)
-        assert all(
-            0 <= pos < len(self._colors) for pos in positions
-        ), "Position indices are out of bounds."
+        """Calculate the average color from the collected colors.
 
-        color = Color(0, 0, 0)
+        Returns black (0,0,0) if positions is empty.
+        Out-of-bounds positions are silently skipped.
+        """
+        if not positions or not self._colors:
+            return Color(0, 0, 0)
+
+        colors = self._colors
+        num_colors = len(colors)
+        r = g = b = 0
+        count = 0
+
         for pos in positions:
-            color.red += self._colors[pos].red
-            color.green += self._colors[pos].green
-            color.blue += self._colors[pos].blue
+            if 0 <= pos < num_colors:
+                c = colors[pos]
+                r += c.red
+                g += c.green
+                b += c.blue
+                count += 1
 
-        color.red //= len(positions)
-        color.green //= len(positions)
-        color.blue //= len(positions)
-        return color
+        if count == 0:
+            return Color(0, 0, 0)
+
+        return Color(r // count, g // count, b // count)
+
+    def is_all_black(self, threshold: int = 15) -> bool:
+        """Check if all colors are below the threshold (essentially black).
+
+        Args:
+            threshold: Maximum RGB value to consider as black (default: 15)
+
+        Returns:
+            True if all colors are below threshold, False otherwise
+        """
+        if not self._colors:
+            return True
+
+        return all(
+            color.red <= threshold and color.green <= threshold and color.blue <= threshold
+            for color in self._colors
+        )
 
     def print_colors(self) -> None:
         """Print the colors in a formatted way."""
