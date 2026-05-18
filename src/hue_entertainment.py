@@ -24,7 +24,8 @@ class HueEntertainmentGroupKit:
         Based on official documentation:
         https://github.com/hrdasdominik/hue-entertainment-pykit?tab=readme-ov-file#streaming
         """
-        assert isinstance(config, dict), "Configuration must be a dictionary."
+        if not isinstance(config, dict):
+            raise TypeError("Configuration must be a dictionary.")
 
         # Initialize default logging (WARNING level to reduce thread spam)
         setup_logs(level=logging.WARNING)
@@ -47,8 +48,13 @@ class HueEntertainmentGroupKit:
         # Fetch all Entertainment Configurations on the Hue bridge
         entertainment_configs = entertainment_service.get_entertainment_configs()
 
-        # Add choose Entertainment Area selection logic
-        entertainment_config = list(entertainment_configs.values())[config["index"]]
+        config_list = list(entertainment_configs.values())
+        if not config_list:
+            raise RuntimeError("No Entertainment Areas found on bridge. Create one in the Hue app.")
+        index = config.get("index", 0)
+        if not isinstance(index, int) or not (0 <= index < len(config_list)):
+            raise ValueError(f"Entertainment area index {index} out of range (0–{len(config_list) - 1})")
+        entertainment_config = config_list[index]
 
         # Set up the Streaming service
         self._streaming = Streaming(
@@ -98,9 +104,10 @@ def detect_hue_entertainment() -> None:
     bridges = Discovery().discover_bridges()
 
     obj_list = list(bridges.values())
-    assert (
-        len(obj_list) > 0
-    ), "No Hue bridges found. Check your network connection. Did you click the button?"
+    if not obj_list:
+        raise RuntimeError(
+            "No Hue bridges found. Check your network connection. Did you click the button?"
+        )
 
     obj = obj_list[0]
     print("\nCopy & paste configuration to userconfig.yaml:\n")

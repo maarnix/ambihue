@@ -70,7 +70,8 @@ class ConfigLoader:
 
     def get(self, key: str, default: Any = None) -> Dict[str, Any]:
         _ret = self._config_data.get(key, default)
-        assert isinstance(_ret, dict)
+        if not isinstance(_ret, dict):
+            raise ValueError(f"Config key '{key}' must be a dict, got {type(_ret).__name__}")
         return _ret
 
     def get_ambilight_tv(self) -> Dict[str, Any]:
@@ -87,7 +88,8 @@ class ConfigLoader:
 
     def get_lights_setup(self) -> Dict[str, Any]:
         _ret = self._config_data.get("lights_setup")
-        assert _ret is not None, "lights_setup is required"
+        if _ret is None:
+            raise ValueError("'lights_setup' is required in config")
 
         # Support new nested format: lights_setup: {light_name: {id: X, positions: [...]}}
         if isinstance(_ret, dict):

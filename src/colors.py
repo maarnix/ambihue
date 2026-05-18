@@ -7,6 +7,13 @@ import webcolors  # type: ignore
 
 logger = logging.getLogger(__name__)
 
+# Pre-computed at import time so __closest_color does O(n) distance scan once per lookup
+# rather than also rebuilding the name→rgb table on every call.
+_CSS3_COLOR_TABLE: Dict[Tuple[int, int, int], str] = {
+    tuple(webcolors.name_to_rgb(name)): name  # type: ignore[misc]
+    for name in webcolors.names("css3")
+}
+
 
 class Color:
     __slots__ = ("red", "green", "blue")
@@ -57,7 +64,8 @@ class Color:
         if delta == 0:
             saturation = 0.0
         else:
-            saturation = delta / (1 - abs(2 * lightness - 1))
+            denom = 1 - abs(2 * lightness - 1)
+            saturation = delta / denom if denom > 1e-10 else 0.0
 
         # Convert HSL to Philips Hue format
         hue_philips = int(hue * 65535 / 360)
@@ -67,25 +75,18 @@ class Color:
         return hue_philips, saturation_philips, brightness_philips
 
     def __closest_color(self) -> str:
-        min_colors = {}
-        for name in webcolors.names("css3"):
-            r_c, g_c, b_c = webcolors.name_to_rgb(name)
-            rd = (r_c - self.red) ** 2
-            gd = (g_c - self.green) ** 2
-            bd = (b_c - self.blue) ** 2
-            min_colors[(rd + gd + bd)] = name
-        _name = min_colors[min(min_colors.keys())]
-        assert isinstance(_name, str)
-        return _name
+        r, g, b = self.red, self.green, self.blue
+        closest = min(
+            _CSS3_COLOR_TABLE,
+            key=lambda c: (c[0] - r) ** 2 + (c[1] - g) ** 2 + (c[2] - b) ** 2,
+        )
+        return _CSS3_COLOR_TABLE[closest]
 
     def get_css_color_name(self) -> str:
         try:
-            color_name = webcolors.rgb_to_name(self.get_tuple())  # specific color
-            assert isinstance(color_name, str)
+            return webcolors.rgb_to_name(self.get_tuple())
         except ValueError:
-            color_name = self.__closest_color()  # the closest color
-            assert isinstance(color_name, str)
-        return color_name
+            return self.__closest_color()
 
     def get_css_color_name_colored(self) -> str:
         color_code = f"\033[38;2;{self.red};{self.green};{self.blue}m"  # RGB w ANSI

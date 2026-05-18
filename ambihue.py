@@ -25,14 +25,7 @@ PLACEHOLDER_CREDS = ("", "replace_me")
 
 
 def _signal_handler(sig: Any, frame: Any) -> None:
-    """Signal handler to handle Ctrl+C to gracefully exit app.
-
-    Args:
-        sig (Any): signal
-        frame (Any): frame
-    """
-    assert sig
-    assert frame
+    """Signal handler to handle Ctrl+C to gracefully exit app."""
     logger.critical("Gracefully stopping all threads...")
     sys.exit(0)
 
@@ -200,8 +193,7 @@ def _update_ha_options(config: dict[str, Any]) -> None:
     """
     token = _get_supervisor_token()
     if not token:
-        logger.info("No SUPERVISOR_TOKEN found via env/filesystem, trying bashio fallback...")
-        _update_ha_options_via_bashio(config)
+        logger.info("No SUPERVISOR_TOKEN found — skipping HA options update")
         return
 
     try:
@@ -218,33 +210,6 @@ def _update_ha_options(config: dict[str, Any]) -> None:
             logger.warning(f"Failed to update HA options: {response.status_code} {response.text}")
     except Exception as e:
         logger.warning(f"Could not update HA options: {e}")
-
-
-def _update_ha_options_via_bashio(config: dict[str, Any]) -> None:
-    """Fallback: update HA options using bashio CLI (available in HA base images)."""
-    import subprocess
-    import tempfile
-
-    try:
-        # Write config to temp file, then use curl with bashio's token
-        config_json = json.dumps({"options": config})
-        result = subprocess.run(
-            [
-                "bash", "-c",
-                'curl -s -X POST '
-                '-H "Authorization: Bearer ${SUPERVISOR_TOKEN}" '
-                '-H "Content-Type: application/json" '
-                f"-d '{config_json}' "
-                'http://supervisor/addons/self/options'
-            ],
-            capture_output=True, text=True, timeout=10,
-        )
-        if result.returncode == 0 and '"result"' in result.stdout:
-            logger.info(f"Updated HA options via bashio: {result.stdout.strip()}")
-        else:
-            logger.warning(f"bashio fallback failed: rc={result.returncode} stdout={result.stdout} stderr={result.stderr}")
-    except Exception as e:
-        logger.warning(f"bashio fallback error: {e}")
 
 
 def _convert_ha_options_to_config(options: dict[str, Any]) -> dict[str, Any]:
@@ -705,11 +670,13 @@ def _get_config_path() -> str:
         nested_config = _convert_ha_options_to_config(ha_options)
         # Debug: log the converted hue config
         hue_conv = nested_config.get("hue_entertainment_group", {})
-        hue_conv_debug = {k: ("***" if k in ("_client_key",) else v) for k, v in hue_conv.items()}
+        _SENSITIVE = frozenset({"_client_key", "_username", "_hue_app_id"})
+        hue_conv_debug = {k: ("***" if k in _SENSITIVE else v) for k, v in hue_conv.items()}
         logger.info(f"Converted Hue config for runtime: {hue_conv_debug}")
-        # Write converted config to a temp location
-        converted_path = "/tmp/ambihue_config.yaml"
-        with open(converted_path, "w", encoding="utf-8") as f:
+        # Write converted config to addon private data dir (not world-readable /tmp)
+        converted_path = "/data/ambihue_runtime.yaml"
+        fd = os.open(converted_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with os.fdopen(fd, "w") as f:
             yaml.dump(nested_config, f, default_flow_style=False)
         logger.debug(f"Converted HA options to {converted_path}")
         return converted_path

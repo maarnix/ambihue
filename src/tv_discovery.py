@@ -12,7 +12,11 @@ from base64 import b64decode, b64encode
 from secrets import token_hex
 from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urlparse
-from xml.etree import ElementTree
+
+try:
+    from defusedxml import ElementTree  # protects against XML entity attacks
+except ImportError:
+    from xml.etree import ElementTree  # type: ignore[no-redef]
 
 import httpx
 
@@ -31,6 +35,8 @@ MX: {SSDP_MX}\r
 ST: {SSDP_ST}\r
 \r
 """
+
+_UPNP_NS = {"upnp": "urn:schemas-upnp-org:device-1-0"}
 
 
 class PhilipsTVDiscovery:
@@ -129,17 +135,16 @@ class PhilipsTVDiscovery:
                 return None
 
             root = ElementTree.fromstring(response.text)
-            ns = {"upnp": "urn:schemas-upnp-org:device-1-0"}
 
-            device = root.find(".//upnp:device", ns)
+            device = root.find(".//upnp:device", _UPNP_NS)
             if device is None:
                 return None
 
             return {
-                "friendlyName": self._get_text(device, "upnp:friendlyName", ns),
-                "manufacturer": self._get_text(device, "upnp:manufacturer", ns),
-                "modelName": self._get_text(device, "upnp:modelName", ns),
-                "modelNumber": self._get_text(device, "upnp:modelNumber", ns),
+                "friendlyName": self._get_text(device, "upnp:friendlyName", _UPNP_NS),
+                "manufacturer": self._get_text(device, "upnp:manufacturer", _UPNP_NS),
+                "modelName": self._get_text(device, "upnp:modelName", _UPNP_NS),
+                "modelNumber": self._get_text(device, "upnp:modelNumber", _UPNP_NS),
             }
         except Exception as e:
             logger.debug(f"Failed to fetch device description: {e}")
@@ -406,7 +411,12 @@ def discover_tv_from_ha() -> Optional[str]:
         # Auth handshake
         ws.recv()  # auth_required message
         ws.send(_json.dumps({"type": "auth", "access_token": token}))
-        auth_result = _json.loads(ws.recv())
+        try:
+            auth_result = _json.loads(ws.recv())
+        except _json.JSONDecodeError as e:
+            logger.warning(f"Malformed auth response from HA WebSocket: {e}")
+            ws.close()
+            return None
 
         if auth_result.get("type") != "auth_ok":
             logger.warning("HA WebSocket auth failed")
@@ -421,7 +431,12 @@ def discover_tv_from_ha() -> Optional[str]:
             "type": "config_entries/get",
             "domain": "philips_js",
         }))
-        result = _json.loads(ws.recv())
+        try:
+            result = _json.loads(ws.recv())
+        except _json.JSONDecodeError as e:
+            logger.warning(f"Malformed config entries response from HA WebSocket: {e}")
+            ws.close()
+            return None
         ws.close()
 
         entries = result.get("result", [])
