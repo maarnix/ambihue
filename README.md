@@ -62,7 +62,7 @@ Android TVs require PIN authentication, handled in two phases:
 
 After setup, check the **Log** tab for discovered lights:
 
-```
+```text
 ============================================================
 ENTERTAINMENT ZONES DISCOVERED
 ============================================================

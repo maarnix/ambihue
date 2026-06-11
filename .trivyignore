@@ -1,0 +1,8 @@
+# AVD-DS-0002: Home Assistant addons run as root inside their isolated
+# container namespace; the supervisor enforces isolation at the container
+# boundary, so adding a non-root USER here is not applicable.
+AVD-DS-0002
+
+# AVD-DS-0026: HEALTHCHECK is managed by the Home Assistant supervisor for
+# addons, not by the container image itself.
+AVD-DS-0026

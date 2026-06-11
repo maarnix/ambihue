@@ -25,6 +25,7 @@ jobs:
           DEFAULT_BRANCH: main
           VALIDATE_ALL_CODEBASE: true
           VALIDATE_PYTHON_PYINK: false # prefer Black
+          VALIDATE_PYTHON_RUFF_FORMAT: false # conflicts with Black's formatting style
           VALIDATE_CHECKOV: false # prefer Hadolint
           VALIDATE_MARKDOWN_PRETTIER: false # prefer Markdownlint
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

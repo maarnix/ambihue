@@ -1,0 +1,27 @@
+# Linter rules doc:
+# - https://github.com/DavidAnson/markdownlint
+#
+# Based on super-linter's bundled default TEMPLATES/.markdown-lint.yml,
+# with project-specific additions below.
+MD004: false # Unordered list style
+MD007:
+  indent: 2 # Unordered list indentation
+MD013:
+  line_length: 400 # Line length 80 is far too short
+MD026:
+  punctuation: ".,;:!。，；:" # List of not allowed
+MD029: false # Ordered list item prefix
+MD033: false # Allow inline HTML
+MD036: false # Emphasis used instead of a heading
+
+blank_lines: false # Error on blank lines
+
+# Keep-a-Changelog format repeats "Added"/"Changed"/"Fixed" headings under
+# each version - only flag duplicates within the same parent section.
+MD024:
+  siblings_only: true
+
+# Tables have long description cells, so full column alignment isn't
+# practical - just require a single space of padding around each cell.
+MD060:
+  style: leading_and_trailing_space_one

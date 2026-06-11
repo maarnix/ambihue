@@ -102,7 +102,7 @@ lights_setup:
 
 **Finding Light IDs:** Check the add-on logs after Hue pairing:
 
-```
+```text
 ============================================================
 ENTERTAINMENT ZONES DISCOVERED
 ============================================================
@@ -259,7 +259,7 @@ When using automation mode (or any configuration):
 ## Support
 
 For issues, feature requests, or contributions, visit:
-https://github.com/maarnix/ambihue/issues
+<https://github.com/maarnix/ambihue/issues>
 
 ## Advanced Options
 
