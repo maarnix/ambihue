@@ -5,8 +5,8 @@ import time
 from typing import Any, Dict
 
 import httpx
-from httpx import DigestAuth
 import urllib3
+from httpx import DigestAuth
 
 logger = logging.getLogger(__name__)
 
@@ -85,7 +85,9 @@ class AmbilightTV:
         while True:
             if self._ping():
                 if was_offline:
-                    logger.info(f"TV is now online, waiting {self.power_on_time_s}s for full boot...")
+                    logger.info(
+                        f"TV is now online, waiting {self.power_on_time_s}s for full boot..."
+                    )
                     time.sleep(self.power_on_time_s)
                 else:
                     logger.info("TV is online")
@@ -126,7 +128,7 @@ class AmbilightTV:
             response = self._client.get(url, timeout=2.0)
             if response.status_code == 200:
                 data = response.json()
-                return data.get("powerstate", "")
+                return str(data.get("powerstate", ""))
         except Exception:
             pass
         return ""
@@ -141,7 +143,7 @@ class AmbilightTV:
             raise RuntimeError(f"Ambilight API returned HTTP {response.status_code}")
 
         try:
-            data = response.json()
+            data: Dict[str, Any] = response.json()
         except (json.JSONDecodeError, ValueError) as err:
             logger.error(f"Decoding JSON error:\n{response.text}")
             raise json.JSONDecodeError("Invalid JSON", response.text, 0) from err

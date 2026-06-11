@@ -46,7 +46,9 @@ class ConfigLoader:
         if not isinstance(hue_config, dict):
             errors.append("- 'hue_entertainment_group' section is missing or invalid")
         elif hue_config.get("_identification") in (None, "", "replace_me"):
-            errors.append("- 'hue_entertainment_group' credentials not configured (run --discover_hue)")
+            errors.append(
+                "- 'hue_entertainment_group' credentials not configured (run --discover_hue)"
+            )
 
         # Check lights_setup section
         lights_config = self._config_data.get("lights_setup")
@@ -61,9 +63,7 @@ class ConfigLoader:
                 f"{separator}\n"
                 f"Please configure the add-on in Home Assistant:\n"
                 f"Settings -> Add-ons -> AmbiHue -> Configuration\n\n"
-                f"Issues found:\n"
-                + "\n".join(errors)
-                + f"\n{separator}"
+                f"Issues found:\n" + "\n".join(errors) + f"\n{separator}"
             )
             logger.error(error_msg)
             raise ValueError(error_msg)
@@ -87,7 +87,7 @@ class ConfigLoader:
         return _ret
 
     @staticmethod
-    def _normalize_positions(positions: Any) -> list:
+    def _normalize_positions(positions: Any) -> list[int]:
         """Normalize positions to a list of ints.
 
         Accepts a list of ints, a comma-separated string (HA format), or None/missing.
@@ -120,7 +120,10 @@ class ConfigLoader:
             first_value = next(iter(_ret.values()), None)
             if isinstance(first_value, dict) and "id" in first_value:
                 return {
-                    name: {"id": data.get("id"), "positions": self._normalize_positions(data.get("positions"))}
+                    name: {
+                        "id": data.get("id"),
+                        "positions": self._normalize_positions(data.get("positions")),
+                    }
                     for name, data in _ret.items()
                 }
 

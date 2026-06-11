@@ -10,6 +10,7 @@ import signal
 import sys
 from typing import Any
 
+import httpx
 import yaml
 
 from src.ah_logger import init_logger
@@ -24,7 +25,7 @@ PLACEHOLDER_IPS = ("", "192.168.1.X", "replace_me")
 PLACEHOLDER_CREDS = ("", "replace_me")
 
 
-def _signal_handler(sig: Any, frame: Any) -> None:
+def _signal_handler(_sig: Any, _frame: Any) -> None:
     """Signal handler to handle Ctrl+C to gracefully exit app."""
     logger.critical("Gracefully stopping all threads...")
     sys.exit(0)
@@ -79,7 +80,7 @@ def _load_saved_state() -> dict[str, Any]:
     if os.path.exists(_HA_STATE_PATH):
         try:
             with open(_HA_STATE_PATH, "r", encoding="utf-8") as f:
-                state = json.load(f)
+                state: dict[str, Any] = json.load(f)
             logger.info(f"Loaded saved state from {_HA_STATE_PATH}")
             return state
         except (json.JSONDecodeError, OSError) as e:
@@ -197,7 +198,6 @@ def _update_ha_options(config: dict[str, Any]) -> None:
         return
 
     try:
-        import httpx
         response = httpx.post(
             "http://supervisor/addons/self/options",
             json={"options": config},
@@ -208,7 +208,7 @@ def _update_ha_options(config: dict[str, Any]) -> None:
             logger.info("Updated HA add-on configuration (visible in UI)")
         else:
             logger.warning(f"Failed to update HA options: {response.status_code} {response.text}")
-    except Exception as e:
+    except httpx.HTTPError as e:
         logger.warning(f"Could not update HA options: {e}")
 
 
@@ -376,7 +376,7 @@ def _populate_lights_from_discovery(
     logger.info(f"Populated lights_setup with {len(lights)} lights and default positions")
 
 
-def _fix_empty_positions(config: dict[str, Any], is_ha_mode: bool) -> bool:
+def _fix_empty_positions(config: dict[str, Any]) -> bool:  # pylint: disable=too-many-branches
     """Fix lights that have empty positions by assigning defaults.
 
     Returns True if any positions were fixed.
@@ -411,7 +411,8 @@ def _fix_empty_positions(config: dict[str, Any], is_ha_mode: bool) -> bool:
             pos = light.get("positions", "")
             if not pos or pos == "":
                 light["positions"] = ",".join(str(p) for p in default_positions[i])
-                logger.info(f"  Auto-assigned positions {default_positions[i]} to {light.get('name', f'light {i}')}")
+                light_name = light.get("name", f"light {i}")
+                logger.info(f"  Auto-assigned positions {default_positions[i]} to {light_name}")
     elif isinstance(lights, dict):
         for i, (name, light_data) in enumerate(lights.items()):
             pos = light_data.get("positions", [])
@@ -440,7 +441,7 @@ def _persist_config(config: dict[str, Any], is_ha_mode: bool) -> None:
         logger.info("Updated config saved to userconfig.yaml")
 
 
-def _check_and_run_setup() -> bool:
+def _check_and_run_setup() -> bool:  # pylint: disable=too-many-branches,too-many-statements
     """Run auto-setup if config has placeholder values.
 
     Returns:
@@ -468,7 +469,7 @@ def _check_and_run_setup() -> bool:
                 _update_ha_options(config)
 
         # Fix any lights that have empty positions (from previous discovery without defaults)
-        if _fix_empty_positions(config, is_ha_mode):
+        if _fix_empty_positions(config):
             with open(_HA_OPTIONS_PATH, "w", encoding="utf-8") as f:
                 json.dump(config, f, indent=2)
             _save_state(config)
@@ -487,7 +488,11 @@ def _check_and_run_setup() -> bool:
 
     # Get current values
     tv_ip = tv_config.get("ip", "")
-    hue_id = hue_config.get("identification", "") if is_ha_mode else hue_config.get("_identification", "")
+    hue_id = (
+        hue_config.get("identification", "")
+        if is_ha_mode
+        else hue_config.get("_identification", "")
+    )
     hue_ip_key = "ip" if is_ha_mode else "_ip_address"
     hue_ip = hue_config.get(hue_ip_key, "")
     pairing_pin = tv_config.get("pairing_pin", "")
@@ -497,7 +502,11 @@ def _check_and_run_setup() -> bool:
     # re-discover the bridge IP via the portal without requiring button press.
     if hue_id not in PLACEHOLDER_CREDS and hue_ip in PLACEHOLDER_IPS:
         logger.info("Hue credentials found but bridge IP is missing, re-discovering...")
-        from src.hue_entertainment import _discover_bridge_ip_via_portal
+        # Imported lazily: only needed for this recovery path
+        from src.hue_entertainment import (  # pylint: disable=import-outside-toplevel
+            _discover_bridge_ip_via_portal,
+        )
+
         recovered_ip = _discover_bridge_ip_via_portal()
         if recovered_ip:
             hue_config[hue_ip_key] = recovered_ip
@@ -513,10 +522,18 @@ def _check_and_run_setup() -> bool:
     hue_rid_key = "rid" if is_ha_mode else "_rid"
     hue_rid = hue_config.get(hue_rid_key, "")
     hue_ip = hue_config.get(hue_ip_key, "")  # Re-read after possible recovery
-    if hue_id not in PLACEHOLDER_CREDS and hue_ip not in PLACEHOLDER_IPS and hue_rid in PLACEHOLDER_CREDS:
+    if (
+        hue_id not in PLACEHOLDER_CREDS
+        and hue_ip not in PLACEHOLDER_IPS
+        and hue_rid in PLACEHOLDER_CREDS
+    ):
         logger.info("Hue RID is missing, discovering entertainment areas...")
         # Build a config dict compatible with discover_and_log_lights
-        temp_hue_config = _convert_ha_options_to_config(config)["hue_entertainment_group"] if is_ha_mode else hue_config
+        temp_hue_config = (
+            _convert_ha_options_to_config(config)["hue_entertainment_group"]
+            if is_ha_mode
+            else hue_config
+        )
         discovery_result = discover_and_log_lights(temp_hue_config)
         if discovery_result:
             hue_config[hue_rid_key] = discovery_result["rid"]
@@ -530,14 +547,21 @@ def _check_and_run_setup() -> bool:
     # If Hue is fully configured but lights_setup still has defaults, discover lights.
     hue_ip = hue_config.get(hue_ip_key, "")  # Re-read after possible recovery
     hue_rid = hue_config.get(hue_rid_key, "")
-    if (hue_id not in PLACEHOLDER_CREDS and hue_ip not in PLACEHOLDER_IPS
-            and hue_rid not in PLACEHOLDER_CREDS):
+    if (
+        hue_id not in PLACEHOLDER_CREDS
+        and hue_ip not in PLACEHOLDER_IPS
+        and hue_rid not in PLACEHOLDER_CREDS
+    ):
         current_lights = config.get("lights_setup", [])
         is_default_lights = _is_default_lights(current_lights)
 
         if is_default_lights:
             logger.info("lights_setup has default values, discovering lights from bridge...")
-            temp_hue_config = _convert_ha_options_to_config(config)["hue_entertainment_group"] if is_ha_mode else hue_config
+            temp_hue_config = (
+                _convert_ha_options_to_config(config)["hue_entertainment_group"]
+                if is_ha_mode
+                else hue_config
+            )
             discovery_result = discover_and_log_lights(temp_hue_config)
             if discovery_result and discovery_result.get("lights"):
                 _populate_lights_from_discovery(config, discovery_result["lights"], is_ha_mode)
@@ -615,7 +639,6 @@ def _check_and_run_setup() -> bool:
     # === TV PAIRING ===
     # Only attempt pairing if we don't already have credentials
     tv_user = tv_config.get("user", "")
-    tv_password = tv_config.get("password", "")
     has_credentials = tv_user and tv_user not in PLACEHOLDER_CREDS
 
     if tv_ip and tv_ip not in PLACEHOLDER_IPS and not has_credentials:
@@ -670,8 +693,8 @@ def _get_config_path() -> str:
         nested_config = _convert_ha_options_to_config(ha_options)
         # Debug: log the converted hue config
         hue_conv = nested_config.get("hue_entertainment_group", {})
-        _SENSITIVE = frozenset({"_client_key", "_username", "_hue_app_id"})
-        hue_conv_debug = {k: ("***" if k in _SENSITIVE else v) for k, v in hue_conv.items()}
+        sensitive_keys = frozenset({"_client_key", "_username", "_hue_app_id"})
+        hue_conv_debug = {k: ("***" if k in sensitive_keys else v) for k, v in hue_conv.items()}
         logger.info(f"Converted Hue config for runtime: {hue_conv_debug}")
         # Write converted config to addon private data dir (not world-readable /tmp)
         converted_path = "/data/ambihue_runtime.yaml"

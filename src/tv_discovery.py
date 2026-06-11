@@ -13,6 +13,9 @@ from secrets import token_hex
 from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urlparse
 
+# Element is only used for type annotations; all parsing goes through defusedxml
+from xml.etree.ElementTree import Element
+
 try:
     from defusedxml import ElementTree  # protects against XML entity attacks
 except ImportError:
@@ -68,11 +71,13 @@ class PhilipsTVDiscovery:
                     # Verify TV has JointSpace API
                     ip = urlparse(location).hostname
                     if ip and self._has_jointspace_api(ip):
-                        tvs.append({
-                            "ip": ip,
-                            "name": device_info.get("friendlyName", "Philips TV"),
-                            "model": device_info.get("modelName", "Unknown"),
-                        })
+                        tvs.append(
+                            {
+                                "ip": ip,
+                                "name": device_info.get("friendlyName", "Philips TV"),
+                                "model": device_info.get("modelName", "Unknown"),
+                            }
+                        )
                         logger.info(f"Found: {device_info.get('friendlyName')} at {ip}")
             except Exception as e:
                 logger.debug(f"Error processing {location}: {e}")
@@ -152,9 +157,7 @@ class PhilipsTVDiscovery:
             logger.debug(f"Failed to fetch device description: {e}")
             return None
 
-    def _get_text(
-        self, element: ElementTree.Element, path: str, ns: Dict[str, str]
-    ) -> str:
+    def _get_text(self, element: Element, path: str, ns: Dict[str, str]) -> str:
         """Get text from XML element safely."""
         found = element.find(path, ns)
         return found.text if found is not None and found.text else ""
@@ -396,7 +399,11 @@ def discover_tv_from_ha() -> Optional[str]:
     if not token:
         logger.warning("No SUPERVISOR_TOKEN found - HA API discovery unavailable")
         # Log available env vars for debugging (keys only, no values)
-        ha_vars = [k for k in os.environ if "HA" in k.upper() or "SUPER" in k.upper() or "HASS" in k.upper()]
+        ha_vars = [
+            k
+            for k in os.environ
+            if "HA" in k.upper() or "SUPER" in k.upper() or "HASS" in k.upper()
+        ]
         logger.debug(f"Available HA env vars: {ha_vars}")
         return None
 
@@ -427,11 +434,15 @@ def discover_tv_from_ha() -> Optional[str]:
             logger.info("Connected to HA, querying philips_js config entries...")
 
             # Query config entries for philips_js integration
-            ws.send(_json.dumps({
-                "id": 1,
-                "type": "config_entries/get",
-                "domain": "philips_js",
-            }))
+            ws.send(
+                _json.dumps(
+                    {
+                        "id": 1,
+                        "type": "config_entries/get",
+                        "domain": "philips_js",
+                    }
+                )
+            )
             try:
                 result = _json.loads(ws.recv())
             except _json.JSONDecodeError as e:
@@ -451,7 +462,7 @@ def discover_tv_from_ha() -> Optional[str]:
             host = data.get("host")
             if host:
                 logger.info(f"Found Philips TV in HA: {host} ({entry.get('title', 'unknown')})")
-                return host
+                return str(host)
 
         logger.warning("Philips TV found in HA but no host in config data")
         return None
@@ -548,7 +559,9 @@ def _poll_ha_config_for_pin(timeout_seconds: int = 120) -> str:
         return ""
 
     logger.warning(f"Waiting up to {timeout_seconds}s for PIN in Configuration tab...")
-    logger.warning("Enter the PIN shown on your TV in: Settings -> Add-ons -> AmbiHue -> Configuration")
+    logger.warning(
+        "Enter the PIN shown on your TV in: Settings -> Add-ons -> AmbiHue -> Configuration"
+    )
     logger.warning("Set 'pairing_pin' under ambilight_tv, then SAVE (no restart needed).")
 
     headers = {"Authorization": f"Bearer {token}"}
@@ -568,7 +581,7 @@ def _poll_ha_config_for_pin(timeout_seconds: int = 120) -> str:
                 pin = tv_opts.get("pairing_pin", "")
                 if pin:
                     logger.info("PIN received from config")
-                    return pin
+                    return str(pin)
         except Exception as e:
             logger.debug(f"Config poll error: {e}")
 
@@ -600,7 +613,8 @@ def _load_pairing_state() -> Dict[str, Any]:
     try:
         with open(state_path, "r", encoding="utf-8") as f:
             state = json.load(f)
-        return state.get("tv_pairing_state", {})
+        pairing_state: Dict[str, Any] = state.get("tv_pairing_state", {})
+        return pairing_state
     except (json.JSONDecodeError, OSError) as e:
         logger.debug(f"Failed to load pairing state: {e}")
         return {}

@@ -53,7 +53,9 @@ class HueEntertainmentGroupKit:
             raise RuntimeError("No Entertainment Areas found on bridge. Create one in the Hue app.")
         index = config.get("index", 0)
         if not isinstance(index, int) or not (0 <= index < len(config_list)):
-            raise ValueError(f"Entertainment area index {index} out of range (0–{len(config_list) - 1})")
+            raise ValueError(
+                f"Entertainment area index {index} out of range (0–{len(config_list) - 1})"
+            )
         entertainment_config = config_list[index]
 
         # Set up the Streaming service
@@ -146,7 +148,7 @@ def _discover_bridge_ip_via_portal() -> Optional[str]:
                 ip = bridges[0].get("internalipaddress")
                 if ip:
                     logger.info(f"Found Hue Bridge via discovery portal: {ip}")
-                    return ip
+                    return str(ip)
                 else:
                     logger.warning("Bridge found but no IP address in response")
         else:
@@ -172,6 +174,7 @@ def _pair_bridge_directly(ip: str) -> Optional[Dict[str, Any]]:
         Dict with bridge credentials or None if button not pressed
     """
     import secrets
+
     import httpx
 
     # Generate unique identifiers for this app
@@ -320,9 +323,7 @@ def pair_hue_bridge(timeout_seconds: int = 30) -> Dict[str, Any]:
 
         time.sleep(5)
 
-    raise RuntimeError(
-        "Hue Bridge pairing timed out. Press the bridge button and restart AmbiHue."
-    )
+    raise RuntimeError("Hue Bridge pairing timed out. Press the bridge button and restart AmbiHue.")
 
 
 def _fetch_light_names(ip: str, username: str) -> Dict[str, str]:

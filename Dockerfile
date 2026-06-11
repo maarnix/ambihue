@@ -55,8 +55,9 @@ RUN isort src ambihue.py \
     && mypy src \
     && mypy ambihue.py
 
+# pylint does not auto-discover ".python-lint", so pass it explicitly
 COPY .github/linters/.python-lint /
-RUN pylint ambihue ambihue.py
+RUN pylint --rcfile=/.python-lint ambihue.py
 
 #
 # Final stage used by Home Assistant Addon supervisor based on `build_base`
