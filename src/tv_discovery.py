@@ -6,6 +6,7 @@ Supports both Android TVs (PIN required) and non-Android TVs (no auth).
 
 import hashlib
 import hmac as hmac_mod
+import ipaddress
 import json
 import logging
 import os
@@ -90,6 +91,21 @@ class PhilipsTVDiscovery:
 
         return tvs
 
+    def _is_valid_location(self, location: str, source_ip: str) -> bool:
+        """Check that a discovered LOCATION URL is safe to fetch.
+
+        SSDP responses are unauthenticated UDP broadcasts that any host on
+        the network can spoof, so only trust LOCATION URLs whose hostname
+        matches the UDP sender's address and that point to a private IP.
+        """
+        host = urlparse(location).hostname
+        if not host or host != source_ip:
+            return False
+        try:
+            return ipaddress.ip_address(host).is_private
+        except ValueError:
+            return False
+
     def _send_ssdp_search(self) -> List[str]:
         """Send SSDP M-SEARCH and collect location URLs.
 
@@ -109,14 +125,15 @@ class PhilipsTVDiscovery:
             start_time = time.time()
             while time.time() - start_time < self._timeout:
                 try:
-                    data, _ = sock.recvfrom(4096)
+                    data, addr = sock.recvfrom(4096)
                     response = data.decode("utf-8", errors="ignore")
 
                     # Extract LOCATION header
                     for line in response.split("\r\n"):
                         if line.lower().startswith("location:"):
                             location = line.split(":", 1)[1].strip()
-                            locations.add(location)
+                            if self._is_valid_location(location, addr[0]):
+                                locations.add(location)
                             break
                 except socket.timeout:
                     break
@@ -293,7 +310,8 @@ class PhilipsTVPairing:
             )
             response.raise_for_status()
             result = response.json()
-            logger.debug(f"pair/request response: {result}")
+            redacted_result = {**result, "auth_key": "***"} if "auth_key" in result else result
+            logger.debug(f"pair/request response: {redacted_result}")
 
             # Return full state needed for grant
             return {
@@ -351,7 +369,8 @@ class PhilipsTVPairing:
             )
 
             logger.debug(f"pair/grant response status: {response.status_code}")
-            logger.debug(f"pair/grant response body: {response.text}")
+            redacted_body = response.text.replace(auth_key, "***") if auth_key else response.text
+            logger.debug(f"pair/grant response body: {redacted_body}")
 
             response.raise_for_status()
 
@@ -648,7 +667,8 @@ def _save_pairing_state(pairing_state: Dict[str, Any]) -> None:
     state["tv_pairing_state"] = pairing_state
 
     try:
-        with open(state_path, "w", encoding="utf-8") as f:
+        fd = os.open(state_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
             json.dump(state, f, indent=2)
         logger.info("Saved TV pairing state to state file")
     except OSError as e:

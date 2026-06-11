@@ -8,7 +8,7 @@ import logging
 import os
 import signal
 import sys
-from typing import Any
+from typing import IO, Any
 
 import httpx
 import yaml
@@ -77,6 +77,15 @@ _HA_OPTIONS_PATH = "/data/options.json"
 _HA_STATE_PATH = "/data/ambihue_state.json"
 
 
+def _open_secure(path: str) -> IO[str]:
+    """Open a file for writing with restrictive permissions (0o600).
+
+    Used for files that may contain credentials.
+    """
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    return os.fdopen(fd, "w", encoding="utf-8")
+
+
 def _load_saved_state() -> dict[str, Any]:
     """Load previously discovered state (persists across restarts).
 
@@ -96,7 +105,7 @@ def _load_saved_state() -> dict[str, Any]:
 
 def _save_state(state: dict[str, Any]) -> None:
     """Save discovered state to persistent file."""
-    with open(_HA_STATE_PATH, "w", encoding="utf-8") as f:
+    with _open_secure(_HA_STATE_PATH) as f:
         json.dump(state, f, indent=2)
     logger.info(f"Saved discovered state to {_HA_STATE_PATH}")
 
@@ -215,7 +224,7 @@ def _update_ha_options(config: dict[str, Any]) -> None:
         if response.status_code == 200:
             logger.info("Updated HA add-on configuration (visible in UI)")
         else:
-            logger.warning(f"Failed to update HA options: {response.status_code} {response.text}")
+            logger.warning(f"Failed to update HA options: HTTP {response.status_code}")
     except httpx.HTTPError as e:
         logger.warning(f"Could not update HA options: {e}")
 
@@ -440,11 +449,11 @@ def _persist_config(config: dict[str, Any], is_ha_mode: bool) -> None:
     """
     if is_ha_mode:
         _save_state(config)
-        with open(_HA_OPTIONS_PATH, "w", encoding="utf-8") as f:
+        with _open_secure(_HA_OPTIONS_PATH) as f:
             json.dump(config, f, indent=2)
         _update_ha_options(config)
     else:
-        with open("userconfig.yaml", "w", encoding="utf-8") as f:
+        with _open_secure("userconfig.yaml") as f:
             yaml.dump(config, f, default_flow_style=False)
         logger.info("Updated config saved to userconfig.yaml")
 
@@ -470,7 +479,7 @@ def _check_and_run_setup() -> bool:  # pylint: disable=too-many-branches,too-man
             merged = _merge_state_into_config(config, saved_state)
             if merged:
                 # Write merged config back to options.json so _get_config_path() picks it up
-                with open(_HA_OPTIONS_PATH, "w", encoding="utf-8") as f:
+                with _open_secure(_HA_OPTIONS_PATH) as f:
                     json.dump(config, f, indent=2)
                 logger.info("Wrote merged config to options.json")
                 # Also update Supervisor's copy so the HA UI shows merged values
@@ -478,7 +487,7 @@ def _check_and_run_setup() -> bool:  # pylint: disable=too-many-branches,too-man
 
         # Fix any lights that have empty positions (from previous discovery without defaults)
         if _fix_empty_positions(config):
-            with open(_HA_OPTIONS_PATH, "w", encoding="utf-8") as f:
+            with _open_secure(_HA_OPTIONS_PATH) as f:
                 json.dump(config, f, indent=2)
             _save_state(config)
             setup_performed = True
@@ -735,8 +744,7 @@ def _get_config_path() -> str:
         logger.info(f"Converted Hue config for runtime: {hue_conv_debug}")
         # Write converted config to addon private data dir (not world-readable /tmp)
         converted_path = "/data/ambihue_runtime.yaml"
-        fd = os.open(converted_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-        with os.fdopen(fd, "w") as f:
+        with _open_secure(converted_path) as f:
             yaml.dump(nested_config, f, default_flow_style=False)
         logger.debug(f"Converted HA options to {converted_path}")
         return converted_path
