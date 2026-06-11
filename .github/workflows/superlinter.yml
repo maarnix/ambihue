@@ -18,7 +18,8 @@ jobs:
           fetch-depth: 0 # super linter requires git history to work properly
 
       - name: Run Super-Linter
-        uses: super-linter/super-linter/slim@v7
+        # v7 (< 8.3.1) is vulnerable to command injection via crafted filenames (fixed in 8.3.1)
+        uses: super-linter/super-linter/slim@v8
         env:
           DEFAULT_BRANCH: main
           VALIDATE_ALL_CODEBASE: true
