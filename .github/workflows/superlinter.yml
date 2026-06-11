@@ -31,4 +31,5 @@ jobs:
           VALIDATE_PYTHON_RUFF_FORMAT: false # conflicts with Black's formatting style
           VALIDATE_CHECKOV: false # prefer Hadolint
           VALIDATE_MARKDOWN_PRETTIER: false # prefer Markdownlint
+          VALIDATE_JSON_PRETTIER: false # conflicts with Biome's tab-based formatting
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
