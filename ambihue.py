@@ -505,9 +505,8 @@ def _check_and_run_setup() -> bool:  # pylint: disable=too-many-branches,too-man
     if hue_id not in PLACEHOLDER_CREDS and hue_ip in PLACEHOLDER_IPS:
         logger.info("Hue credentials found but bridge IP is missing, re-discovering...")
         # Imported lazily: only needed for this recovery path
-        from src.hue_entertainment import (  # pylint: disable=import-outside-toplevel
-            _discover_bridge_ip_via_portal,
-        )
+        # pylint: disable-next=import-outside-toplevel
+        from src.hue_entertainment import _discover_bridge_ip_via_portal
 
         recovered_ip = _discover_bridge_ip_via_portal()
         if recovered_ip:
