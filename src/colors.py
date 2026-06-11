@@ -10,8 +10,7 @@ logger = logging.getLogger(__name__)
 # Pre-computed at import time so __closest_color does O(n) distance scan once per lookup
 # rather than also rebuilding the name→rgb table on every call.
 _CSS3_COLOR_TABLE: Dict[Tuple[int, int, int], str] = {
-    tuple(webcolors.name_to_rgb(name)): name  # type: ignore[misc]
-    for name in webcolors.names("css3")
+    tuple(webcolors.name_to_rgb(name)): name for name in webcolors.names("css3")
 }
 
 
@@ -84,7 +83,7 @@ class Color:
 
     def get_css_color_name(self) -> str:
         try:
-            return webcolors.rgb_to_name(self.get_tuple())
+            return str(webcolors.rgb_to_name(self.get_tuple()))
         except ValueError:
             return self.__closest_color()
 
