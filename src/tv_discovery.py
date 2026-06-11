@@ -90,6 +90,7 @@ class PhilipsTVDiscovery:
         """
         locations = set()
 
+        sock = None
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             sock.settimeout(self._timeout)
@@ -113,10 +114,11 @@ class PhilipsTVDiscovery:
                     break
                 except Exception as e:
                     logger.debug(f"Error receiving SSDP response: {e}")
-
-            sock.close()
         except Exception as e:
             logger.error(f"SSDP search failed: {e}")
+        finally:
+            if sock is not None:
+                sock.close()
 
         return list(locations)
 
@@ -408,36 +410,35 @@ def discover_tv_from_ha() -> Optional[str]:
             timeout=10,
         )
 
-        # Auth handshake
-        ws.recv()  # auth_required message
-        ws.send(_json.dumps({"type": "auth", "access_token": token}))
         try:
-            auth_result = _json.loads(ws.recv())
-        except _json.JSONDecodeError as e:
-            logger.warning(f"Malformed auth response from HA WebSocket: {e}")
-            ws.close()
-            return None
+            # Auth handshake
+            ws.recv()  # auth_required message
+            ws.send(_json.dumps({"type": "auth", "access_token": token}))
+            try:
+                auth_result = _json.loads(ws.recv())
+            except _json.JSONDecodeError as e:
+                logger.warning(f"Malformed auth response from HA WebSocket: {e}")
+                return None
 
-        if auth_result.get("type") != "auth_ok":
-            logger.warning("HA WebSocket auth failed")
-            ws.close()
-            return None
+            if auth_result.get("type") != "auth_ok":
+                logger.warning("HA WebSocket auth failed")
+                return None
 
-        logger.info("Connected to HA, querying philips_js config entries...")
+            logger.info("Connected to HA, querying philips_js config entries...")
 
-        # Query config entries for philips_js integration
-        ws.send(_json.dumps({
-            "id": 1,
-            "type": "config_entries/get",
-            "domain": "philips_js",
-        }))
-        try:
-            result = _json.loads(ws.recv())
-        except _json.JSONDecodeError as e:
-            logger.warning(f"Malformed config entries response from HA WebSocket: {e}")
+            # Query config entries for philips_js integration
+            ws.send(_json.dumps({
+                "id": 1,
+                "type": "config_entries/get",
+                "domain": "philips_js",
+            }))
+            try:
+                result = _json.loads(ws.recv())
+            except _json.JSONDecodeError as e:
+                logger.warning(f"Malformed config entries response from HA WebSocket: {e}")
+                return None
+        finally:
             ws.close()
-            return None
-        ws.close()
 
         entries = result.get("result", [])
         if not entries:

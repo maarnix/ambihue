@@ -35,7 +35,16 @@ class AmbiHueMain:
         self._runtime_error_threshold = tv_config.get("runtime_error_threshold", 10)
 
         # Get refresh rate from config (in milliseconds)
-        self._refresh_rate_ms = tv_config.get("refresh_rate_ms", 10)
+        # A value of 0 (or missing) would create a tight busy-loop hammering the TV's
+        # HTTP API and consuming a full CPU core, so enforce a sane minimum.
+        _MIN_REFRESH_RATE_MS = 10
+        self._refresh_rate_ms = tv_config.get("refresh_rate_ms", _MIN_REFRESH_RATE_MS)
+        if self._refresh_rate_ms < _MIN_REFRESH_RATE_MS:
+            logger.warning(
+                f"refresh_rate_ms={self._refresh_rate_ms} is too low, "
+                f"clamping to {_MIN_REFRESH_RATE_MS}ms to avoid a busy loop"
+            )
+            self._refresh_rate_ms = _MIN_REFRESH_RATE_MS
         self._refresh_rate_s = self._refresh_rate_ms / 1000.0
 
         # Get idle refresh rate from config (when TV is black/off)
@@ -204,7 +213,7 @@ class AmbiHueMain:
                 # Check if any light has out-of-range positions and reassign if needed
                 has_out_of_range = False
                 for light_data in self._light_setup.values():
-                    positions = light_data.get("positions", [])
+                    positions = light_data.get("positions") or []
                     if any(p >= num_zones for p in positions):
                         has_out_of_range = True
                         break
@@ -227,7 +236,7 @@ class AmbiHueMain:
                 logger.warning("Entertainment session started")
 
             for light_name, light_data in self._light_setup.items():
-                color = self._mixer.get_average_color(light_data["positions"])
+                color = self._mixer.get_average_color(light_data.get("positions") or [])
                 new_rgb = (float(color.red), float(color.green), float(color.blue))
 
                 # Apply exponential smoothing

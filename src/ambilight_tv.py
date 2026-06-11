@@ -46,6 +46,14 @@ class AmbilightTV:
         self._wait_for_startup_s = config.get("wait_for_startup_s", 29)
         self.power_on_time_s = config.get("power_on_time_s", 8)
 
+    def close(self) -> None:
+        """Close the underlying HTTP client and release its connections."""
+        self._client.close()
+
+    def __del__(self) -> None:
+        if hasattr(self, "_client"):
+            self._client.close()
+
     def wait_for_startup(self) -> None:
         """Waits for TV to become reachable. Waits indefinitely if wait_for_startup_s is 0."""
         if self._wait_for_startup_s == 0:

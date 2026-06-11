@@ -418,6 +418,13 @@ def discover_and_log_lights(bridge_config: Dict[str, Any]) -> Optional[Dict[str,
             logger.warning("Create an Entertainment Area in the Hue app first")
             return None
 
+        if not isinstance(selected_index, int) or not (0 <= selected_index < len(configs)):
+            logger.warning(
+                f"Configured entertainment area index {selected_index} is out of range "
+                f"(0-{len(configs) - 1}); defaulting to 0"
+            )
+            selected_index = 0
+
         # Fetch actual light names from Hue v2 API
         light_names = _fetch_light_names(
             bridge_config["_ip_address"],
