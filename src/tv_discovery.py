@@ -12,7 +12,11 @@ from base64 import b64decode, b64encode
 from secrets import token_hex
 from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urlparse
-from xml.etree import ElementTree
+
+try:
+    from defusedxml import ElementTree  # protects against XML entity attacks
+except ImportError:
+    from xml.etree import ElementTree  # type: ignore[no-redef]
 
 import httpx
 
@@ -31,6 +35,8 @@ MX: {SSDP_MX}\r
 ST: {SSDP_ST}\r
 \r
 """
+
+_UPNP_NS = {"upnp": "urn:schemas-upnp-org:device-1-0"}
 
 
 class PhilipsTVDiscovery:
@@ -84,6 +90,7 @@ class PhilipsTVDiscovery:
         """
         locations = set()
 
+        sock = None
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             sock.settimeout(self._timeout)
@@ -107,10 +114,11 @@ class PhilipsTVDiscovery:
                     break
                 except Exception as e:
                     logger.debug(f"Error receiving SSDP response: {e}")
-
-            sock.close()
         except Exception as e:
             logger.error(f"SSDP search failed: {e}")
+        finally:
+            if sock is not None:
+                sock.close()
 
         return list(locations)
 
@@ -129,17 +137,16 @@ class PhilipsTVDiscovery:
                 return None
 
             root = ElementTree.fromstring(response.text)
-            ns = {"upnp": "urn:schemas-upnp-org:device-1-0"}
 
-            device = root.find(".//upnp:device", ns)
+            device = root.find(".//upnp:device", _UPNP_NS)
             if device is None:
                 return None
 
             return {
-                "friendlyName": self._get_text(device, "upnp:friendlyName", ns),
-                "manufacturer": self._get_text(device, "upnp:manufacturer", ns),
-                "modelName": self._get_text(device, "upnp:modelName", ns),
-                "modelNumber": self._get_text(device, "upnp:modelNumber", ns),
+                "friendlyName": self._get_text(device, "upnp:friendlyName", _UPNP_NS),
+                "manufacturer": self._get_text(device, "upnp:manufacturer", _UPNP_NS),
+                "modelName": self._get_text(device, "upnp:modelName", _UPNP_NS),
+                "modelNumber": self._get_text(device, "upnp:modelNumber", _UPNP_NS),
             }
         except Exception as e:
             logger.debug(f"Failed to fetch device description: {e}")
@@ -403,26 +410,35 @@ def discover_tv_from_ha() -> Optional[str]:
             timeout=10,
         )
 
-        # Auth handshake
-        ws.recv()  # auth_required message
-        ws.send(_json.dumps({"type": "auth", "access_token": token}))
-        auth_result = _json.loads(ws.recv())
+        try:
+            # Auth handshake
+            ws.recv()  # auth_required message
+            ws.send(_json.dumps({"type": "auth", "access_token": token}))
+            try:
+                auth_result = _json.loads(ws.recv())
+            except _json.JSONDecodeError as e:
+                logger.warning(f"Malformed auth response from HA WebSocket: {e}")
+                return None
 
-        if auth_result.get("type") != "auth_ok":
-            logger.warning("HA WebSocket auth failed")
+            if auth_result.get("type") != "auth_ok":
+                logger.warning("HA WebSocket auth failed")
+                return None
+
+            logger.info("Connected to HA, querying philips_js config entries...")
+
+            # Query config entries for philips_js integration
+            ws.send(_json.dumps({
+                "id": 1,
+                "type": "config_entries/get",
+                "domain": "philips_js",
+            }))
+            try:
+                result = _json.loads(ws.recv())
+            except _json.JSONDecodeError as e:
+                logger.warning(f"Malformed config entries response from HA WebSocket: {e}")
+                return None
+        finally:
             ws.close()
-            return None
-
-        logger.info("Connected to HA, querying philips_js config entries...")
-
-        # Query config entries for philips_js integration
-        ws.send(_json.dumps({
-            "id": 1,
-            "type": "config_entries/get",
-            "domain": "philips_js",
-        }))
-        result = _json.loads(ws.recv())
-        ws.close()
 
         entries = result.get("result", [])
         if not entries:

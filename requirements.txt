@@ -1,17 +1,18 @@
-argcomplete # script's args
-websocket-client  # HA WebSocket API (discover devices from HA registry)
-pyyaml # config files
-types-pyyaml  # typing for pyyaml
-webcolors  # get names for RGB colors
+argcomplete>=3.1.4,<4.0.0        # script's args
+websocket-client>=1.6.0,<2.0.0  # HA WebSocket API (discover devices from HA registry)
+pyyaml>=6.0.1,<7.0.0            # config files
+types-pyyaml>=6.0.12,<7.0.0     # typing for pyyaml
+webcolors>=24.6.0,<25.0.0       # get names for RGB colors
+defusedxml>=0.7.1,<1.0.0        # safe XML parsing (prevents XXE / entity-expansion attacks)
 
 # Network Communication
-httpx[http2]  # HTTP client for Python with HTTP2 support # faster than requests
-urllib3  # use to disable warnings
+httpx[http2]>=0.27.0,<1.0.0    # HTTP client for Python with HTTP2 support
+urllib3>=2.5.0,<3.0.0           # used to disable InsecureRequestWarning; >=2.5.0 fixes CVE-2025-50181/50182 (SSRF via redirects)
 
 # Hue communication
 # https://github.com/hrdasdominik/hue-entertainment-pykit
 # dependencies: https://github.com/hrdasdominik/hue-entertainment-pykit/blob/main/pyproject.toml
 # hue-entertainment-pykit requires Python<=3.12
-hue-entertainment-pykit
+hue-entertainment-pykit>=0.1.0,<1.0.0
 
 # python-mbedtls==2.10.1  # the newest version # https://pypi.org/project/python-mbedtls/2.10.1/

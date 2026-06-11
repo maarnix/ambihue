@@ -6,7 +6,9 @@
 ARG BUILD_FROM
 FROM ${BUILD_FROM:-ghcr.io/hassio-addons/base-python:14.0.4} AS build_base
 
-# Disable warning and install Python packages on system level: PEP668
+# PEP 668 guard: the HA base image ships a system Python with no venv; we must
+# allow pip to install into it.  There is no user-writable venv alternative on
+# this base image, so the flag is required here.
 ENV PIP_BREAK_SYSTEM_PACKAGES=1
 
 ARG TARGETPLATFORM
@@ -33,24 +35,18 @@ RUN if [ "$TARGETPLATFORM" = "linux/arm64" ] || [ "$TARGETPLATFORM" = "linux/arm
     echo "Skipping for $TARGETPLATFORM"; \
     fi
 
-# Copy data for add-on
+# Copy requirements first so Docker can cache the pip layer independently
 COPY requirements.txt /
-
-# Install dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
 #
-# Linters stage to test Python code - not build by default
+# Linters stage to test Python code - not built by default
 #
 FROM build_base AS linters
 
-# Copy data for add-on
 COPY .github/requirements_dev.txt /
-
-# Install dependencies
 RUN pip install --no-cache-dir -r requirements_dev.txt
 
-# Copy ambihue # sync with 72-73
 COPY src /src
 COPY ambihue.py pyproject.toml /
 
@@ -59,7 +55,6 @@ RUN isort src ambihue.py \
     && mypy src \
     && mypy ambihue.py
 
-# Copy data for add-on
 COPY .github/linters/.python-lint /
 RUN pylint ambihue ambihue.py
 
@@ -68,11 +63,11 @@ RUN pylint ambihue ambihue.py
 #
 FROM build_base AS final
 
-# Copy ambihue # sync with 54-55
 COPY src /src
 COPY ambihue.py run.sh pyproject.toml /
 
-# Install ambihue
+# HA addons run as root inside their isolated container namespace;
+# the supervisor enforces isolation at the container boundary.
 RUN pip install --no-cache-dir . \
     && chmod a+x /run.sh
 

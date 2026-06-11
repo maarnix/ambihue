@@ -1,6 +1,6 @@
 import json
 import logging
-import os
+import subprocess
 import time
 from typing import Any, Dict
 
@@ -46,6 +46,14 @@ class AmbilightTV:
         self._wait_for_startup_s = config.get("wait_for_startup_s", 29)
         self.power_on_time_s = config.get("power_on_time_s", 8)
 
+    def close(self) -> None:
+        """Close the underlying HTTP client and release its connections."""
+        self._client.close()
+
+    def __del__(self) -> None:
+        if hasattr(self, "_client"):
+            self._client.close()
+
     def wait_for_startup(self) -> None:
         """Waits for TV to become reachable. Waits indefinitely if wait_for_startup_s is 0."""
         if self._wait_for_startup_s == 0:
@@ -55,6 +63,19 @@ class AmbilightTV:
             # Timeout mode - current behavior
             self._wait_with_timeout()
 
+    def _ping(self) -> bool:
+        """Check TV reachability without shell injection risk."""
+        try:
+            result = subprocess.run(
+                ["ping", "-c", "1", "-W", "1", self._ip],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                timeout=3,
+            )
+            return result.returncode == 0
+        except (subprocess.TimeoutExpired, OSError):
+            return False
+
     def _wait_indefinitely(self) -> None:
         """Wait indefinitely for TV to come online."""
         logger.info(f"Waiting indefinitely for TV at {self._ip} (wait_for_startup_s=0)")
@@ -62,9 +83,7 @@ class AmbilightTV:
         was_offline = False
 
         while True:
-            response = os.system(f"ping -c 1 -W 1 {self._ip} > /dev/null 2>&1")
-
-            if response == 0:
+            if self._ping():
                 if was_offline:
                     logger.info(f"TV is now online, waiting {self.power_on_time_s}s for full boot...")
                     time.sleep(self.power_on_time_s)
@@ -84,8 +103,7 @@ class AmbilightTV:
         _was_enabled = True
 
         for cnt in range(int(self._wait_for_startup_s / 3)):
-            response = os.system(f"ping -c 1 -W 1 {self._ip} > /dev/null 2>&1")
-            if response == 0:
+            if self._ping():
                 if _was_enabled is False:
                     logger.error(f"TV is powering on... add {self.power_on_time_s}s more")
                     time.sleep(self.power_on_time_s)
@@ -118,6 +136,9 @@ class AmbilightTV:
             response = self._client.get(self._full_path, timeout=0.2)
         except httpx.RequestError as err:
             raise RuntimeError(err) from err
+
+        if response.status_code != 200:
+            raise RuntimeError(f"Ambilight API returned HTTP {response.status_code}")
 
         try:
             data = response.json()

@@ -70,7 +70,8 @@ class ConfigLoader:
 
     def get(self, key: str, default: Any = None) -> Dict[str, Any]:
         _ret = self._config_data.get(key, default)
-        assert isinstance(_ret, dict)
+        if not isinstance(_ret, dict):
+            raise ValueError(f"Config key '{key}' must be a dict, got {type(_ret).__name__}")
         return _ret
 
     def get_ambilight_tv(self) -> Dict[str, Any]:
@@ -85,16 +86,43 @@ class ConfigLoader:
             raise ValueError("'hue_entertainment_group' section missing. Check Configuration tab.")
         return _ret
 
+    @staticmethod
+    def _normalize_positions(positions: Any) -> list:
+        """Normalize positions to a list of ints.
+
+        Accepts a list of ints, a comma-separated string (HA format), or None/missing.
+        Malformed values are logged and treated as empty.
+        """
+        if positions is None:
+            return []
+        if isinstance(positions, str):
+            try:
+                return [int(p.strip()) for p in positions.split(",") if p.strip()]
+            except ValueError:
+                logger.warning(f"Invalid positions string {positions!r}, ignoring")
+                return []
+        if isinstance(positions, list):
+            try:
+                return [int(p) for p in positions]
+            except (ValueError, TypeError):
+                logger.warning(f"Invalid positions list {positions!r}, ignoring")
+                return []
+        logger.warning(f"Unexpected positions type {type(positions).__name__}: {positions!r}")
+        return []
+
     def get_lights_setup(self) -> Dict[str, Any]:
         _ret = self._config_data.get("lights_setup")
-        assert _ret is not None, "lights_setup is required"
+        if _ret is None:
+            raise ValueError("'lights_setup' is required in config")
 
         # Support new nested format: lights_setup: {light_name: {id: X, positions: [...]}}
         if isinstance(_ret, dict):
             first_value = next(iter(_ret.values()), None)
             if isinstance(first_value, dict) and "id" in first_value:
-                # New format - already in correct structure
-                return _ret
+                return {
+                    name: {"id": data.get("id"), "positions": self._normalize_positions(data.get("positions"))}
+                    for name, data in _ret.items()
+                }
 
             # Legacy flat format: A_name, A_id, A_positions, etc.
             lights = {}
@@ -105,7 +133,7 @@ class ConfigLoader:
                 id_ = _ret.get(f"{key}_id")
                 positions = _ret.get(f"{key}_positions")
                 if name is not None:
-                    lights[name] = {"id": id_, "positions": positions}
+                    lights[name] = {"id": id_, "positions": self._normalize_positions(positions)}
             return lights
 
         # Support list format: [{name: X, id: Y, positions: [...]}]
@@ -114,7 +142,10 @@ class ConfigLoader:
             for light in _ret:
                 name = light.get("name")
                 if name:
-                    lights[name] = {"id": light.get("id"), "positions": light.get("positions")}
+                    lights[name] = {
+                        "id": light.get("id"),
+                        "positions": self._normalize_positions(light.get("positions")),
+                    }
             return lights
 
         raise ValueError("lights_setup must be a dict or list")

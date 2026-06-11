@@ -28,19 +28,24 @@ class ColorMixer:
 
         self._num_of_left_right_colors = len(left)
 
-        # Pre-allocate list with exact size to avoid repeated appends
         colors = []
         for color in left.values():
-            r, g, b = color.values()
-            colors.append(Color(r, g, b))
+            vals = list(color.values())
+            if len(vals) != 3:
+                raise ValueError(f"Expected 3 color components, got {len(vals)}")
+            colors.append(Color(*vals))
 
         for color in top.values():
-            r, g, b = color.values()
-            colors.append(Color(r, g, b))
+            vals = list(color.values())
+            if len(vals) != 3:
+                raise ValueError(f"Expected 3 color components, got {len(vals)}")
+            colors.append(Color(*vals))
 
         for color in reversed(list(right.values())):  # invert RIGHT order
-            r, g, b = color.values()
-            colors.append(Color(r, g, b))
+            vals = list(color.values())
+            if len(vals) != 3:
+                raise ValueError(f"Expected 3 color components, got {len(vals)}")
+            colors.append(Color(*vals))
 
         self._colors = colors
 
@@ -90,14 +95,12 @@ class ColorMixer:
         if not self._colors:
             return True
 
-        return all(
-            color.red <= threshold and color.green <= threshold and color.blue <= threshold
-            for color in self._colors
-        )
+        return all(max(color.red, color.green, color.blue) <= threshold for color in self._colors)
 
     def print_colors(self) -> None:
         """Print the colors in a formatted way."""
-        assert self._colors, "Colors have not been set yet."
+        if not self._colors:
+            raise ValueError("Colors have not been set yet.")
 
         if logger.getEffectiveLevel() != logging.DEBUG:
             return  # only print if debug is enabled
