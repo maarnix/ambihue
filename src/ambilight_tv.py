@@ -71,6 +71,7 @@ class AmbilightTV:
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
                 timeout=3,
+                check=False,
             )
             return result.returncode == 0
         except (subprocess.TimeoutExpired, OSError):

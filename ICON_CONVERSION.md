@@ -24,7 +24,7 @@ I've created two SVG files for your Home Assistant add-on:
 ## Converting SVG to PNG
 
 ### Method 1: Online Conversion (Easiest)
-1. Go to https://svgtopng.com/ or https://cloudconvert.com/svg-to-png
+1. Go to <https://svgtopng.com/> or <https://cloudconvert.com/svg-to-png>
 2. Upload `icon.svg` and convert to PNG at 256x256 pixels
 3. Upload `logo.svg` and convert to PNG at 512x256 pixels
 4. Download and rename:
@@ -32,7 +32,7 @@ I've created two SVG files for your Home Assistant add-on:
    - `logo.svg` → `logo.png`
 
 ### Method 2: Inkscape (Best Quality)
-1. Install Inkscape: https://inkscape.org/release/
+1. Install Inkscape: <https://inkscape.org/release/>
 2. For icon.png:
    ```bash
    inkscape icon.svg --export-type=png --export-filename=icon.png -w 256 -h 256
@@ -82,7 +82,8 @@ If you want to modify the design:
 ## Final Step
 
 After conversion, place the PNG files in the root directory:
-```
+
+```text
 c:\Users\HA\ambihue\
 ├── icon.png
 ├── logo.png

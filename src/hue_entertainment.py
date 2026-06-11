@@ -4,9 +4,11 @@ https://github.com/hrdasdominik/hue-entertainment-pykit/blob/main/src/hue_entert
 """
 
 import logging
+import secrets
 import time
 from typing import Any, Dict, Optional, Tuple
 
+import httpx
 from hue_entertainment_pykit import Streaming  # type: ignore  # missing some types
 from hue_entertainment_pykit import Discovery, Entertainment, create_bridge, setup_logs
 
@@ -52,7 +54,7 @@ class HueEntertainmentGroupKit:
         if not config_list:
             raise RuntimeError("No Entertainment Areas found on bridge. Create one in the Hue app.")
         index = config.get("index", 0)
-        if not isinstance(index, int) or not (0 <= index < len(config_list)):
+        if not isinstance(index, int) or not 0 <= index < len(config_list):
             raise ValueError(
                 f"Entertainment area index {index} out of range (0–{len(config_list) - 1})"
             )
@@ -133,8 +135,6 @@ def _discover_bridge_ip_via_portal() -> Optional[str]:
     Returns:
         Bridge IP address or None if not found
     """
-    import httpx
-
     try:
         logger.info("Querying Philips discovery portal (discovery.meethue.com)...")
         response = httpx.get("https://discovery.meethue.com/", timeout=10.0)
@@ -149,8 +149,7 @@ def _discover_bridge_ip_via_portal() -> Optional[str]:
                 if ip:
                     logger.info(f"Found Hue Bridge via discovery portal: {ip}")
                     return str(ip)
-                else:
-                    logger.warning("Bridge found but no IP address in response")
+                logger.warning("Bridge found but no IP address in response")
         else:
             logger.warning(f"Discovery portal returned status {response.status_code}")
 
@@ -173,10 +172,6 @@ def _pair_bridge_directly(ip: str) -> Optional[Dict[str, Any]]:
     Returns:
         Dict with bridge credentials or None if button not pressed
     """
-    import secrets
-
-    import httpx
-
     # Generate unique identifiers for this app
     app_id = f"ambihue#{secrets.token_hex(4)}"
 
@@ -336,8 +331,6 @@ def _fetch_light_names(ip: str, username: str) -> Dict[str, str]:
     Returns:
         Dict mapping light resource RID to light name
     """
-    import httpx
-
     names: Dict[str, str] = {}
     try:
         response = httpx.get(
@@ -374,7 +367,6 @@ def _fetch_light_names(ip: str, username: str) -> Dict[str, str]:
             data = response.json()
             for ent in data.get("data", []):
                 ent_rid = ent.get("id", "")
-                ent_name = ent.get("renderer_reference", {}).get("rid", "")
                 # Map entertainment RID -> owner device RID -> light name
                 owner_rid = ent.get("owner", {}).get("rid", "")
                 if ent_rid and owner_rid and owner_rid in names:
@@ -419,7 +411,7 @@ def discover_and_log_lights(bridge_config: Dict[str, Any]) -> Optional[Dict[str,
             logger.warning("Create an Entertainment Area in the Hue app first")
             return None
 
-        if not isinstance(selected_index, int) or not (0 <= selected_index < len(configs)):
+        if not isinstance(selected_index, int) or not 0 <= selected_index < len(configs):
             logger.warning(
                 f"Configured entertainment area index {selected_index} is out of range "
                 f"(0-{len(configs) - 1}); defaulting to 0"
@@ -442,7 +434,7 @@ def discover_and_log_lights(bridge_config: Dict[str, Any]) -> Optional[Dict[str,
         selected_lights: list[Dict[str, Any]] = []
 
         for idx, (rid, config) in enumerate(configs.items()):
-            logger.warning(f"")
+            logger.warning("")
             marker = " (selected)" if idx == selected_index else ""
             logger.warning(f"Zone {idx}: {config.name}{marker}")
             logger.warning(f"  RID: {rid}")
@@ -457,14 +449,15 @@ def discover_and_log_lights(bridge_config: Dict[str, Any]) -> Optional[Dict[str,
                     light_name = f"Light {channel_idx}"
                     if hasattr(channel, "members") and channel.members:
                         member_rid = channel.members[0].service.rid
-                        if member_rid in light_names:
-                            light_name = light_names[member_rid]
+                        light_name = light_names.get(member_rid, light_name)
                     # Fallback: try light_services list (same order as channels)
-                    if light_name.startswith("Light ") and hasattr(config, "light_services"):
-                        if channel_idx < len(config.light_services):
-                            svc_rid = config.light_services[channel_idx].rid
-                            if svc_rid in light_names:
-                                light_name = light_names[svc_rid]
+                    if (
+                        light_name.startswith("Light ")
+                        and hasattr(config, "light_services")
+                        and channel_idx < len(config.light_services)
+                    ):
+                        svc_rid = config.light_services[channel_idx].rid
+                        light_name = light_names.get(svc_rid, light_name)
                     logger.warning(f"    [{channel_idx}] {light_name}")
                     zone_lights.append({"name": light_name, "id": channel_idx})
             else:

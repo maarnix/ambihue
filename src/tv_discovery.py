@@ -4,24 +4,27 @@ Provides SSDP-based discovery and JointSpace v6 pairing for Philips TVs.
 Supports both Android TVs (PIN required) and non-Android TVs (no auth).
 """
 
+import hashlib
+import hmac as hmac_mod
 import json
 import logging
+import os
 import socket
+import sys
+import threading
 import time
 from base64 import b64decode, b64encode
 from secrets import token_hex
 from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urlparse
+from xml.etree.ElementTree import Element  # only used for type annotations
 
-# Element is only used for type annotations; all parsing goes through defusedxml
-from xml.etree.ElementTree import Element
+import httpx
 
 try:
     from defusedxml import ElementTree  # protects against XML entity attacks
 except ImportError:
     from xml.etree import ElementTree  # type: ignore[no-redef]
-
-import httpx
 
 logger = logging.getLogger(__name__)
 
@@ -237,9 +240,6 @@ class PhilipsTVPairing:
         Returns:
             Base64-encoded HMAC-SHA1 signature
         """
-        import hashlib
-        import hmac as hmac_mod
-
         h = hmac_mod.new(key, digestmod=hashlib.sha1)
         h.update(str(timestamp).encode("utf-8"))
         h.update(str(pin).encode("utf-8"))
@@ -392,9 +392,6 @@ def discover_tv_from_ha() -> Optional[str]:
     Returns:
         TV IP address or None if not found
     """
-    import json as _json
-    import os
-
     token = os.environ.get("SUPERVISOR_TOKEN", "") or os.environ.get("HASSIO_TOKEN", "")
     if not token:
         logger.warning("No SUPERVISOR_TOKEN found - HA API discovery unavailable")
@@ -408,7 +405,7 @@ def discover_tv_from_ha() -> Optional[str]:
         return None
 
     try:
-        import websocket  # websocket-client
+        import websocket  # pylint: disable=import-outside-toplevel  # optional dependency
 
         logger.info("Querying Home Assistant for Philips TV devices...")
 
@@ -420,10 +417,10 @@ def discover_tv_from_ha() -> Optional[str]:
         try:
             # Auth handshake
             ws.recv()  # auth_required message
-            ws.send(_json.dumps({"type": "auth", "access_token": token}))
+            ws.send(json.dumps({"type": "auth", "access_token": token}))
             try:
-                auth_result = _json.loads(ws.recv())
-            except _json.JSONDecodeError as e:
+                auth_result = json.loads(ws.recv())
+            except json.JSONDecodeError as e:
                 logger.warning(f"Malformed auth response from HA WebSocket: {e}")
                 return None
 
@@ -435,7 +432,7 @@ def discover_tv_from_ha() -> Optional[str]:
 
             # Query config entries for philips_js integration
             ws.send(
-                _json.dumps(
+                json.dumps(
                     {
                         "id": 1,
                         "type": "config_entries/get",
@@ -444,8 +441,8 @@ def discover_tv_from_ha() -> Optional[str]:
                 )
             )
             try:
-                result = _json.loads(ws.recv())
-            except _json.JSONDecodeError as e:
+                result = json.loads(ws.recv())
+            except json.JSONDecodeError as e:
                 logger.warning(f"Malformed config entries response from HA WebSocket: {e}")
                 return None
         finally:
@@ -509,9 +506,6 @@ def _prompt_for_pin_with_timeout(timeout_seconds: int = 10) -> str:
     Returns:
         PIN entered by user, or empty string if timeout/no input/HA mode
     """
-    import sys
-    import threading
-
     # In HA mode, stdin is closed - skip the prompt
     if not sys.stdin or sys.stdin.closed:
         return ""
@@ -551,8 +545,6 @@ def _poll_ha_config_for_pin(timeout_seconds: int = 120) -> str:
     Returns:
         PIN string or empty string if timeout
     """
-    import os
-
     token = os.environ.get("SUPERVISOR_TOKEN", "") or os.environ.get("HASSIO_TOKEN", "")
     if not token:
         logger.warning("No Supervisor API access - cannot poll for PIN")
@@ -604,8 +596,6 @@ def _load_pairing_state() -> Dict[str, Any]:
     Returns:
         Saved pairing state dict, or empty dict if not found
     """
-    import os
-
     state_path = "/data/ambihue_state.json"
     if not os.path.exists(state_path):
         return {}
@@ -626,8 +616,6 @@ def _save_pairing_state(pairing_state: Dict[str, Any]) -> None:
     Args:
         pairing_state: Dict with auth_key, timestamp, and device info
     """
-    import os
-
     state_path = "/data/ambihue_state.json"
     state: Dict[str, Any] = {}
 
@@ -650,8 +638,6 @@ def _save_pairing_state(pairing_state: Dict[str, Any]) -> None:
 
 def _clear_pairing_state() -> None:
     """Remove pairing state from state file after successful pairing."""
-    import os
-
     state_path = "/data/ambihue_state.json"
     if not os.path.exists(state_path):
         return

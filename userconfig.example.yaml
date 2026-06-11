@@ -8,24 +8,24 @@
 # SEE README.md and DOCS.md for more details
 
 ambilight_tv:
-  protocol: "https://"    # "http://" or "https://"
-  ip: "192.168.1.X"       # TV IP (or leave as placeholder for auto-discovery)
-  port: 1926              # 1925 for HTTP, 1926 for HTTPS
-  api_version: 6          # API version: 1, 5, or 6
+  protocol: "https://" # "http://" or "https://"
+  ip: "192.168.1.X" # TV IP (or leave as placeholder for auto-discovery)
+  port: 1926 # 1925 for HTTP, 1926 for HTTPS
+  api_version: 6 # API version: 1, 5, or 6
   path: "ambilight/processed"
 
   # Android TV Authentication (auto-filled after pairing)
-  user: ""                # Leave empty for auto-setup
-  password: ""            # Leave empty for auto-setup
-  pairing_pin: ""         # Enter PIN from TV screen for Android TV pairing
+  user: "" # Leave empty for auto-setup
+  password: "" # Leave empty for auto-setup
+  pairing_pin: "" # Enter PIN from TV screen for Android TV pairing
 
   # CONFIGURATION MODES:
   #
   # Mode 1: Polling Mode (Default)
   #   - Add-on monitors TV itself and exits if TV doesn't respond
   #   - Use if you want add-on to auto-restart on TV power cycles
-  wait_for_startup_s: 29          # Wait 29s for TV at startup, then exit
-  runtime_error_threshold: 10     # Exit after 10 consecutive TV errors
+  wait_for_startup_s: 29 # Wait 29s for TV at startup, then exit
+  runtime_error_threshold: 10 # Exit after 10 consecutive TV errors
 
   # Mode 2: Automation Mode (For Home Assistant Integration)
   #   - Set both to 0 to wait indefinitely for TV
@@ -34,10 +34,10 @@ ambilight_tv:
   # wait_for_startup_s: 0         # Wait indefinitely for TV
   # runtime_error_threshold: 0    # Never exit on TV offline
 
-  power_on_time_s: 8              # Grace period for TV boot
-  refresh_rate_ms: 50             # Update rate when syncing (10-50ms recommended)
-  idle_refresh_rate_ms: 5000      # Poll rate when TV idle (1000-5000ms)
-  transition_smoothing: 0.5       # Color smoothing: 0.0 = instant, 0.9 = very smooth
+  power_on_time_s: 8 # Grace period for TV boot
+  refresh_rate_ms: 50 # Update rate (10-50ms recommended)
+  idle_refresh_rate_ms: 5000 # Poll rate when TV idle (1000-5000ms)
+  transition_smoothing: 0.5 # Color smoothing: 0=instant, 0.9=very smooth
 
 hue_entertainment_group:
   # Auto-filled after pressing Bridge button and starting AmbiHue
@@ -50,7 +50,7 @@ hue_entertainment_group:
   _hue_app_id: "replace_me"
   _client_key: "replace_me"
   _name: "Hue Bridge"
-  index: 0  # Entertainment Area index (0 = first area)
+  index: 0 # Entertainment Area index (0 = first area)
 
 lights_setup:
   # Map your Hue lights to TV Ambilight zones
@@ -66,8 +66,8 @@ lights_setup:
   #   [0]0L                                              [16]3R
 
   sofa_behind:
-    id: 0              # Light index from Entertainment Area
-    positions: [0, 1]  # Ambilight zones to average
+    id: 0 # Light index from Entertainment Area
+    positions: [0, 1] # Ambilight zones to average
   go_up:
     id: 1
     positions: [2, 3]

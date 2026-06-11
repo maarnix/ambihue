@@ -134,14 +134,16 @@ def _merge_state_into_config(config: dict[str, Any], state: dict[str, Any]) -> b
     if saved_lights:
         is_default = False
         if isinstance(current_lights, list):
-            names = [l.get("name", "") for l in current_lights if isinstance(l, dict)]
+            names = [light.get("name", "") for light in current_lights if isinstance(light, dict)]
             is_default = set(names) <= {"light1", "light2", ""}
         elif isinstance(current_lights, dict):
             is_default = set(current_lights.keys()) <= {"light1", "light2"}
         # Only replace defaults - saved lights from discovery are better
         saved_names = set()
         if isinstance(saved_lights, list):
-            saved_names = {l.get("name", "") for l in saved_lights if isinstance(l, dict)}
+            saved_names = {
+                light.get("name", "") for light in saved_lights if isinstance(light, dict)
+            }
         elif isinstance(saved_lights, dict):
             saved_names = set(saved_lights.keys())
         saved_is_default = saved_names <= {"light1", "light2", ""}
@@ -277,7 +279,7 @@ def _is_default_lights(lights: Any) -> bool:
     Returns True for: light1/light2, Light 0/Light 1, or empty names.
     """
     if isinstance(lights, list):
-        names = [l.get("name", "") for l in lights if isinstance(l, dict)]
+        names = [light.get("name", "") for light in lights if isinstance(light, dict)]
         if set(names) <= {"light1", "light2", ""}:
             return True
         # Auto-generated "Light N" names from previous discovery without real names
@@ -336,7 +338,7 @@ def _populate_lights_from_discovery(
     # Check if current lights are still default/auto-generated placeholders
     is_default = False
     if isinstance(current_lights, list):
-        names = [l.get("name", "") for l in current_lights if isinstance(l, dict)]
+        names = [light.get("name", "") for light in current_lights if isinstance(light, dict)]
         is_default = set(names) <= {"light1", "light2", ""}
         # Also treat auto-generated "Light N" names as defaults worth refreshing
         if not is_default and all(n.startswith("Light ") and n[6:].isdigit() for n in names if n):

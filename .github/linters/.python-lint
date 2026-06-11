@@ -6,7 +6,12 @@ disable=
     too-many-locals,                # allow more than 15 local variables per function
     too-few-public-methods,         # for now
     too-many-instance-attributes,   # for now
-    import-error                    # super-linter requires this
+    import-error,                   # super-linter requires this
+    broad-exception-caught,         # network calls use broad catches for resilience
+    too-many-branches,              # orchestration functions are inherently branchy
+    too-many-statements,            # for now
+    too-many-nested-blocks,         # for now
+    too-many-return-statements      # early-return style for discovery/pairing flows
 
 [FORMAT]
 max-line-length=100

@@ -37,14 +37,14 @@ class AmbiHueMain:
         # Get refresh rate from config (in milliseconds)
         # A value of 0 (or missing) would create a tight busy-loop hammering the TV's
         # HTTP API and consuming a full CPU core, so enforce a sane minimum.
-        _MIN_REFRESH_RATE_MS = 10
-        self._refresh_rate_ms = tv_config.get("refresh_rate_ms", _MIN_REFRESH_RATE_MS)
-        if self._refresh_rate_ms < _MIN_REFRESH_RATE_MS:
+        min_refresh_rate_ms = 10
+        self._refresh_rate_ms = tv_config.get("refresh_rate_ms", min_refresh_rate_ms)
+        if self._refresh_rate_ms < min_refresh_rate_ms:
             logger.warning(
                 f"refresh_rate_ms={self._refresh_rate_ms} is too low, "
-                f"clamping to {_MIN_REFRESH_RATE_MS}ms to avoid a busy loop"
+                f"clamping to {min_refresh_rate_ms}ms to avoid a busy loop"
             )
-            self._refresh_rate_ms = _MIN_REFRESH_RATE_MS
+            self._refresh_rate_ms = min_refresh_rate_ms
         self._refresh_rate_s = self._refresh_rate_ms / 1000.0
 
         # Get idle refresh rate from config (when TV is black/off)
@@ -202,7 +202,8 @@ class AmbiHueMain:
                     # Fallback: tear down after timeout even if powerstate check fails
                     if black_duration >= self._black_screen_timeout_s:
                         logger.warning(
-                            f"Black screen for {int(black_duration)}s, stopping Entertainment session"
+                            f"Black screen for {int(black_duration)}s, "
+                            "stopping Entertainment session"
                         )
                         del self._hue
                         self._hue = None
@@ -222,7 +223,8 @@ class AmbiHueMain:
             if self._hue is None:
                 num_zones = self._mixer.num_colors
                 logger.warning(
-                    f"TV content detected ({num_zones} ambilight zones), starting Entertainment session..."
+                    f"TV content detected ({num_zones} ambilight zones), "
+                    "starting Entertainment session..."
                 )
 
                 # Check if any light has out-of-range positions and reassign if needed
