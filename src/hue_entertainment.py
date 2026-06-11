@@ -64,6 +64,7 @@ class HueEntertainmentGroupKit:
         self._streaming = Streaming(
             self._bridge, entertainment_config, entertainment_service.get_ent_conf_repo()
         )
+        self._closed = False
 
         # Start streaming messages to the bridge
         self._streaming.start_stream()
@@ -84,9 +85,14 @@ class HueEntertainmentGroupKit:
         """
         self._streaming.set_input((*color, light_id))
 
-    def __del__(self) -> None:
-        if not hasattr(self, "_streaming"):
+    def close(self) -> None:
+        """Stop the streaming session and release resources.
+
+        Safe to call multiple times.
+        """
+        if not hasattr(self, "_streaming") or self._closed:
             return
+        self._closed = True
         logger.info("Stopping streaming session...")
 
         # For the purpose of example sleep is used for all inputs to process before stop_stream is
@@ -97,6 +103,9 @@ class HueEntertainmentGroupKit:
 
         # Stop the streaming session
         self._streaming.stop_stream()
+
+    def __del__(self) -> None:
+        self.close()
 
 
 def detect_hue_entertainment() -> None:

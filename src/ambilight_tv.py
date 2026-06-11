@@ -5,13 +5,9 @@ import time
 from typing import Any, Dict
 
 import httpx
-import urllib3
 from httpx import DigestAuth
 
 logger = logging.getLogger(__name__)
-
-# Suppress "Unverified HTTPS request is being made" error message
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
 class AmbilightTV:
@@ -28,7 +24,10 @@ class AmbilightTV:
         # Disable retries to ensure fast failure when TV is offline (respects timeout)
         # verify=False on transport to accept TV's self-signed certificate
         transport = httpx.HTTPTransport(retries=0, verify=False)
-        self._client = httpx.Client(http2=True, auth=auth, transport=transport)
+        # Read timeout is tight since we poll at up to 15Hz, but allow more time
+        # to (re)establish a connection, e.g. after the TV reboots.
+        timeout = httpx.Timeout(0.2, connect=2.0)
+        self._client = httpx.Client(auth=auth, transport=transport, timeout=timeout)
 
         # Connection / API parameters
         self._protocol = config.get("protocol", "https://")
@@ -136,7 +135,7 @@ class AmbilightTV:
 
     def get_ambilight_json(self) -> Dict[str, Any]:
         try:
-            response = self._client.get(self._full_path, timeout=0.2)
+            response = self._client.get(self._full_path)
         except httpx.RequestError as err:
             raise RuntimeError(err) from err
 

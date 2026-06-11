@@ -2,3 +2,5 @@ black
 isort
 pylint
 mypy
+types-pyyaml>=6.0.12,<7.0.0     # typing for pyyaml
+types-defusedxml>=0.7.0,<1.0.0  # typing for defusedxml

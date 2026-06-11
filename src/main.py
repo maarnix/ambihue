@@ -161,14 +161,26 @@ class AmbiHueMain:
         self._hue = None
         logger.info("Starting AmbiHue application in polling mode...")
 
+        next_frame_time = time.monotonic()
+
         while True:  # while true
             # Use idle refresh rate when no session or screen is black, normal rate when streaming
             if self._hue is None or not self._tv_has_content:
                 current_refresh_rate = self._idle_refresh_rate_s
             else:
                 current_refresh_rate = self._refresh_rate_s
+
             if current_refresh_rate > 0:
-                sleep(current_refresh_rate)
+                # Deadline-based pacing: sleep only as long as needed to keep a
+                # steady cadence, regardless of how long the frame below takes.
+                now = time.monotonic()
+                sleep_time = next_frame_time - now
+                if sleep_time > 0:
+                    sleep(sleep_time)
+                    now = next_frame_time
+                next_frame_time = now + current_refresh_rate
+            else:
+                next_frame_time = time.monotonic()
 
             # Periodic status logging (check every 100 frames to avoid per-frame time.time())
             if self._frame_count % 100 == 0:
@@ -203,7 +215,7 @@ class AmbiHueMain:
                             logger.warning(
                                 f"TV power state: {powerstate}, stopping Entertainment session"
                             )
-                            del self._hue
+                            self._hue.close()
                             self._hue = None
                             self._black_since = None
                             self._previous_colors.clear()
@@ -216,7 +228,7 @@ class AmbiHueMain:
                             f"Black screen for {int(black_duration)}s, "
                             "stopping Entertainment session"
                         )
-                        del self._hue
+                        self._hue.close()
                         self._hue = None
                         self._black_since = None
                         self._previous_colors.clear()
@@ -283,7 +295,7 @@ class AmbiHueMain:
                     smoothed = new_rgb
 
                 self._previous_colors[light_name] = smoothed
-                out = (int(round(smoothed[0])), int(round(smoothed[1])), int(round(smoothed[2])))
+                out = (round(smoothed[0]), round(smoothed[1]), round(smoothed[2]))
 
                 # Skip if color hasn't changed since last send
                 if out != self._last_sent.get(light_name):
@@ -299,8 +311,8 @@ class AmbiHueMain:
         """Exit the AmbiHue application."""
         logger.warning(f"Exiting AmbiHue application {exit_code}.")
         if self._hue is not None:
-            del self._hue
-        del self._tv
+            self._hue.close()
+        self._tv.close()
         sys.exit(exit_code)
 
 
