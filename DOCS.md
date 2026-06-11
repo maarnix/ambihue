@@ -36,14 +36,8 @@ AmbiHue can automatically discover and configure your devices:
 
 ### Android TV Pairing
 
-Android TVs require PIN authentication, handled in two phases:
+Android TVs require PIN-based two-phase pairing. See [README.md](README.md#android-tv-pin-pairing) for the pairing steps.
 
-1. **Start the add-on** — a PIN code appears on your TV screen. The add-on saves a pairing key internally and exits.
-2. Go to **Settings → Add-ons → AmbiHue → Configuration** and enter the PIN in the `pairing_pin` field. Save.
-3. **Restart the add-on** — it pairs using the saved key and your PIN. Credentials are stored automatically.
-
-> The `pairing_pin` field is only used during initial setup. After successful pairing, it can be left empty.
->
 > For standalone usage, the PIN can also be entered directly in the terminal when prompted.
 
 ## Configuration
