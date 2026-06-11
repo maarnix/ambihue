@@ -7,12 +7,12 @@ AmbiHue restores the connection between Philips Ambilight TVs and the Hue Bridge
 
 The Hue Entertainment Area provides low-latency color updates with smooth transitions.
 
-![preview](.github/images/preview.png)
+![preview](https://raw.githubusercontent.com/maarnix/ambihue/main/.github/images/preview.png)
 
 ```mermaid
 flowchart LR
-    TV["Philips TV\n(Ambilight data)"] --> AmbiHue["AmbiHue\n(reads colors,\ncalculates per light)"]
-    AmbiHue --> Bridge["Hue Bridge\n(Entertainment Area,\nlow-latency sync)"]
+    TV["Philips TV<br>(Ambilight data)"] --> AmbiHue["AmbiHue<br>(reads colors,<br>calculates per light)"]
+    AmbiHue --> Bridge["Hue Bridge<br>(Entertainment Area,<br>low-latency sync)"]
 ```
 
 ---

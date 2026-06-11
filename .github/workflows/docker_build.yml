@@ -6,9 +6,10 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
 
 jobs:
-  super-linter:
+  docker-build:
     runs-on: ubuntu-latest
 
     steps:
