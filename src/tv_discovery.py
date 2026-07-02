@@ -253,7 +253,12 @@ class PhilipsTVPairing:
         """
         try:
             response = self._client.get(f"{self._base_url}/ambilight/processed")
-            return response.status_code == 200
+            if response.status_code != 200:
+                return False
+            # Some TVs answer HTTP 200 with an HTML "Unauthorized" page instead
+            # of a 401, so require an actual JSON ambilight payload.
+            response.json()
+            return True
         except Exception as e:
             logger.debug(f"No-auth connection failed: {e}")
             return False

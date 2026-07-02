@@ -146,6 +146,14 @@ class AmbilightTV:
         try:
             data: Dict[str, Any] = response.json()
         except (json.JSONDecodeError, ValueError) as err:
+            # Some TVs answer HTTP 200 with an HTML "Unauthorized" page when
+            # credentials are missing or wrong instead of returning a 401.
+            if "unauthorized" in response.text.lower():
+                raise RuntimeError(
+                    "TV rejected the request as unauthorized - pairing required. "
+                    "Clear 'user', 'password' and 'pairing_pin' in the config "
+                    "and restart to pair again."
+                ) from err
             logger.error(f"Decoding JSON error:\n{response.text}")
             raise json.JSONDecodeError("Invalid JSON", response.text, 0) from err
         return data
