@@ -32,11 +32,11 @@ AmbiHue can automatically discover and configure your devices:
 | **Hue Bridge** | Philips cloud portal + direct HTTPS API (works in Docker). Press Bridge button before or during startup. Polls for 30 seconds. |
 | **Philips TV** | Home Assistant device registry (if `philips_js` integration exists), then SSDP network scan as fallback. |
 | **Non-Android TV** | Connects without authentication after discovery. |
-| **Android TV** | Two-phase PIN pairing (see below). |
+| **Android TV** | Uses the open HTTP API (port 1925) without pairing when the TV allows it; otherwise two-phase PIN pairing (see below). |
 
 ### Android TV Pairing
 
-Android TVs require PIN-based two-phase pairing. See [README.md](README.md#android-tv-pin-pairing) for the pairing steps.
+Android TVs whose HTTP API is locked down require PIN-based two-phase pairing. See [README.md](README.md#android-tv-pin-pairing) for the pairing steps.
 
 > For standalone usage, the PIN can also be entered directly in the terminal when prompted.
 

@@ -43,20 +43,37 @@ AmbiHue automatically discovers and configures devices when credentials are not 
 
 ### TV Pairing
 
+Before requiring any pairing, AmbiHue probes for an Ambilight endpoint that works **without credentials** — first HTTPS on port 1926, then plain HTTP on port 1925. Many TVs (including many Android TVs) only enforce pairing on the HTTPS API while the HTTP API serves Ambilight data openly. If an open endpoint is found, AmbiHue switches to it automatically and **no pairing is needed at all**.
+
 | TV Type | Pairing |
 |---------|---------|
 | **Non-Android TV** | No authentication required. Connects automatically after discovery. |
-| **Android TV** | PIN-based two-phase pairing (see below). |
+| **Android TV with open HTTP API** | Detected automatically (port 1925). No PIN needed. |
+| **Android TV, fully locked down** | PIN-based two-phase pairing (see below). |
 
 #### Android TV PIN Pairing
 
-Android TVs require PIN authentication, handled in two phases:
+If both endpoints require authentication, AmbiHue falls back to PIN pairing, handled in two phases:
 
 1. **Start the add-on** — a PIN code appears on your TV screen. The add-on saves a pairing key internally and exits.
 2. Go to **Settings → Add-ons → AmbiHue → Configuration** and enter the PIN in the `pairing_pin` field. Save.
 3. **Restart the add-on** — it pairs using the saved key and your PIN. Credentials are stored automatically.
 
 > The `pairing_pin` field is only used during initial setup. After successful pairing, it can be left empty.
+
+Stored credentials are verified against the TV on every startup. If the TV rejects them (for example after a factory reset), they are discarded and a new PIN pairing starts automatically.
+
+#### Manual no-credentials setup
+
+If auto-setup is skipped (credentials already present in config), you can point AmbiHue at the open HTTP API manually. Verify it works by opening `http://<tv-ip>:1925/6/ambilight/processed` in a browser — if you see JSON color data, configure:
+
+```yaml
+ambilight_tv:
+  protocol: "http://"
+  port: 1925
+  user: ""
+  password: ""
+```
 
 ### Configure Light Positions
 
