@@ -114,7 +114,12 @@ def detect_hue_entertainment() -> None:
         )
 
     obj = obj_list[0]
-    print("\nCopy & paste configuration to userconfig.yaml:\n")
+    print("\nCopy & paste configuration to userconfig.yaml:")
+    print(
+        "WARNING: '_username' and '_client_key' below are credentials for your "
+        "Hue Bridge. Do not share them publicly (e.g. in logs posted to forums "
+        "or issue trackers).\n"
+    )
     print(
         f'  _identification: "{obj._identification}"\n'  # pylint: disable=protected-access
         f'  _rid: "{obj._rid}"\n'  # pylint: disable=protected-access
