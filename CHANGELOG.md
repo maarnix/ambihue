@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.1] - 2026-07-02
+
+### Fixed
+- TV pairing was skipped on TVs that answer unauthenticated requests with an
+  HTTP 200 HTML "Unauthorized" page instead of a 401: the no-auth probe now
+  requires a JSON ambilight payload, so these TVs correctly enter the PIN
+  pairing flow
+- Clear "pairing required" error message when the TV rejects requests as
+  unauthorized, instead of dumping the raw HTML page on every poll
+
 ## [1.3.1] - 2025-01-21
 
 ### Changed
