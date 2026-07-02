@@ -17,6 +17,9 @@ logger = logging.getLogger(__name__)
 class AmbiHueMain:
     """Main class to run the AmbiHue application."""
 
+    # Consecutive failed TV polls before the TV is considered offline
+    _OFFLINE_AFTER_ERRORS = 5
+
     def __init__(self, config_path: Union[str, Path] = "userconfig.yaml") -> None:
         """Initialize the AmbiHue main class."""
         self._config_loader = ConfigLoader(config_path)
@@ -35,11 +38,15 @@ class AmbiHueMain:
         self._runtime_error_threshold = tv_config.get("runtime_error_threshold", 10)
 
         # Get refresh rate from config (in milliseconds)
-        # A value of 0 (or missing) would create a tight busy-loop hammering the TV's
-        # HTTP API and consuming a full CPU core, so enforce a sane minimum.
+        # A value below the minimum would create a tight busy-loop hammering the
+        # TV's HTTP API and consuming a full CPU core, so enforce a sane minimum.
         min_refresh_rate_ms = 10
         self._refresh_rate_ms = tv_config.get("refresh_rate_ms", min_refresh_rate_ms)
-        if self._refresh_rate_ms < min_refresh_rate_ms:
+        if self._refresh_rate_ms == 0:
+            # 0 is the documented "as fast as possible" setting
+            logger.info(f"refresh_rate_ms=0: using minimum of {min_refresh_rate_ms}ms")
+            self._refresh_rate_ms = min_refresh_rate_ms
+        elif self._refresh_rate_ms < min_refresh_rate_ms:
             logger.warning(
                 f"refresh_rate_ms={self._refresh_rate_ms} is too low, "
                 f"clamping to {min_refresh_rate_ms}ms to avoid a busy loop"
@@ -99,10 +106,14 @@ class AmbiHueMain:
         except (JSONDecodeError, RuntimeError) as err:
             self._tv_error_cnt += 1
 
-            # Log only on state transition
+            # A single failed poll is usually just the TV answering slower than
+            # the read timeout - only report offline after consecutive errors.
             if self._tv_is_online:
-                logger.warning(f"TV connection lost: {err}")
-                self._tv_is_online = False
+                if self._tv_error_cnt >= self._OFFLINE_AFTER_ERRORS:
+                    logger.warning(f"TV connection lost: {err}")
+                    self._tv_is_online = False
+                else:
+                    logger.debug(f"TV read failed (attempt {self._tv_error_cnt}): {err}")
             elif self._tv_error_cnt % 100 == 0:
                 # Log every ~1 second during extended offline period
                 logger.debug(f"TV still offline (error count: {self._tv_error_cnt})")

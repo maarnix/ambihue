@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.3] - 2026-07-02
+
+### Changed
+- "TV connection lost" is now only logged after 5 consecutive failed polls;
+  a single poll exceeding the read timeout no longer produces a warning
+- `refresh_rate_ms: 0` (the documented "as fast as possible" default) no
+  longer logs a clamping warning on every start
+
 ## [2.0.2] - 2026-07-02
 
 ### Added
