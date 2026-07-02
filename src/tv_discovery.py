@@ -355,6 +355,18 @@ class PhilipsTVPairing:
 
             response.raise_for_status()
 
+            # The TV reports pairing failure (expired PIN, wrong PIN, ...) as
+            # HTTP 200 with an error_id in the body, so the status alone is
+            # not enough to conclude the credentials were accepted.
+            try:
+                body = response.json()
+            except ValueError:
+                body = {}
+            error_id = str(body.get("error_id", "SUCCESS")).upper()
+            if error_id != "SUCCESS":
+                error_text = body.get("error_text", "")
+                raise RuntimeError(f"TV rejected pairing: {error_id} {error_text}".strip())
+
             # Credentials for subsequent API calls:
             # username = device_id, password = auth_key
             logger.info(f"TV paired successfully (device_id={device_id[:8]}...)")
@@ -365,6 +377,8 @@ class PhilipsTVPairing:
             if e.response.status_code == 401:
                 raise RuntimeError("Invalid PIN code or expired auth key") from e
             raise RuntimeError(f"TV pairing grant failed: {e}") from e
+        except RuntimeError:
+            raise
         except Exception as e:
             raise RuntimeError(f"TV pairing grant failed: {e}") from e
 
@@ -655,6 +669,69 @@ def _clear_pairing_state() -> None:
             json.dump(state, f, indent=2)
     except (json.JSONDecodeError, OSError):
         pass
+
+
+def verify_tv_credentials(  # pylint: disable=too-many-arguments,too-many-positional-arguments
+    ip: str,
+    user: str,
+    password: str,
+    port: int = 1926,
+    protocol: str = "https://",
+    api_version: int = 6,
+) -> Optional[bool]:
+    """Check whether stored TV credentials are accepted by the TV.
+
+    Returns:
+        True if the TV accepts the credentials,
+        False if the TV explicitly rejects them (re-pairing needed),
+        None if the TV could not be reached (keep the credentials).
+    """
+    url = f"{protocol}{ip}:{port}/{api_version}/ambilight/processed"
+    try:
+        response = httpx.get(
+            url,
+            auth=httpx.DigestAuth(user, password),
+            timeout=5.0,
+            verify=False,
+        )
+    except httpx.RequestError:
+        return None  # TV unreachable - not a credential problem
+
+    if response.status_code in (401, 403):
+        return False
+    if response.status_code != 200:
+        return None  # unexpected status - don't discard credentials
+    try:
+        response.json()
+        return True
+    except ValueError:
+        # Some TVs answer HTTP 200 with an HTML "Unauthorized" page
+        return False
+
+
+def probe_no_auth_endpoint(ip: str, api_version: int = 6) -> Optional[Tuple[str, int]]:
+    """Look for an ambilight endpoint that works without authentication.
+
+    Many Philips TVs only enforce pairing on the HTTPS API (port 1926) while
+    the plain-HTTP JointSpace API on port 1925 serves ambilight data without
+    credentials.
+
+    Returns:
+        (protocol, port) of an open endpoint, or None if all require auth.
+    """
+    candidates = (("https://", 1926), ("http://", 1925))
+    for protocol, port in candidates:
+        url = f"{protocol}{ip}:{port}/{api_version}/ambilight/processed"
+        try:
+            response = httpx.get(url, timeout=3.0, verify=False)
+            if response.status_code != 200:
+                continue
+            response.json()  # some TVs answer 200 with an HTML error page
+            logger.info(f"TV allows unauthenticated ambilight access on {protocol}{ip}:{port}")
+            return (protocol, port)
+        except Exception as e:
+            logger.debug(f"No-auth probe {protocol}{ip}:{port} failed: {e}")
+    return None
 
 
 def handle_tv_pairing(

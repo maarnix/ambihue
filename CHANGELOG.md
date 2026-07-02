@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.2] - 2026-07-02
+
+### Added
+- Before requiring PIN pairing, the add-on now probes for an ambilight
+  endpoint that works without credentials (many TVs only enforce pairing on
+  HTTPS port 1926 while HTTP port 1925 is open) and uses it when available,
+  so no pairing is needed at all on those TVs
+
+### Fixed
+- Pairing was reported successful even when the TV rejected it: Philips TVs
+  report a failed pair/grant (expired or wrong PIN) as HTTP 200 with an
+  `error_id` in the body, so the add-on stored credentials the TV never
+  accepted and got stuck on HTTP 401 without ever re-pairing
+- Stored TV credentials are now verified at startup; if the TV rejects them,
+  they are discarded and a new PIN pairing is started automatically
+
 ## [2.0.1] - 2026-07-02
 
 ### Fixed

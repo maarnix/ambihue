@@ -16,7 +16,13 @@ import yaml
 from src.ah_logger import init_logger
 from src.hue_entertainment import discover_and_log_lights, pair_hue_bridge
 from src.main import AmbiHueMain, discover_hue, verify_hue, verify_tv
-from src.tv_discovery import PhilipsTVDiscovery, discover_tv_from_ha, handle_tv_pairing
+from src.tv_discovery import (
+    PhilipsTVDiscovery,
+    discover_tv_from_ha,
+    handle_tv_pairing,
+    probe_no_auth_endpoint,
+    verify_tv_credentials,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -640,12 +646,42 @@ def _check_and_run_setup() -> bool:  # pylint: disable=too-many-branches,too-man
     # === TV PAIRING ===
     # Only attempt pairing if we don't already have credentials
     tv_user = tv_config.get("user", "")
-    has_credentials = tv_user and tv_user not in PLACEHOLDER_CREDS
+    has_credentials = bool(tv_user and tv_user not in PLACEHOLDER_CREDS)
+    protocol = tv_config.get("protocol", "https://")
+    port = tv_config.get("port", 1926)
+    api_version = tv_config.get("api_version", 6)
+
+    # Stored credentials can be stale, e.g. saved from a pairing attempt the
+    # TV actually rejected. Verify them and re-pair if the TV refuses them.
+    if has_credentials and tv_ip and tv_ip not in PLACEHOLDER_IPS:
+        creds_ok = verify_tv_credentials(
+            tv_ip, tv_user, tv_config.get("password", ""), port, protocol, api_version
+        )
+        if creds_ok is False:
+            logger.warning("TV rejected the stored credentials - starting a new pairing...")
+            has_credentials = False
+            tv_config["user"] = ""
+            tv_config["password"] = ""
+            config["ambilight_tv"] = tv_config
+            _persist_config(config, is_ha_mode)
 
     if tv_ip and tv_ip not in PLACEHOLDER_IPS and not has_credentials:
-        protocol = tv_config.get("protocol", "https://")
-        port = tv_config.get("port", 1926)
-        api_version = tv_config.get("api_version", 6)
+        # Prefer an endpoint that needs no credentials at all: many TVs only
+        # enforce pairing on HTTPS (1926) while HTTP (1925) is open.
+        open_endpoint = probe_no_auth_endpoint(tv_ip, api_version)
+        if open_endpoint:
+            if (protocol, port) != open_endpoint:
+                protocol, port = open_endpoint
+                tv_config["protocol"] = protocol
+                tv_config["port"] = port
+                config["ambilight_tv"] = tv_config
+                setup_performed = True
+                _persist_config(config, is_ha_mode)
+            logger.warning(
+                f"TV allows unauthenticated access via {protocol}{tv_ip}:{port} - "
+                "skipping PIN pairing"
+            )
+            return setup_performed
 
         try:
             user, password = handle_tv_pairing(
