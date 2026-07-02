@@ -2,6 +2,26 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.4] - 2026-07-02
+
+### Security
+- Files containing credentials (options.json, ambihue_state.json,
+  userconfig.yaml, TV pairing state) are now written with 0o600 permissions
+- Credentials are redacted from debug logs and Supervisor API error logs
+- SSDP discovery validates that LOCATION URLs match the responding device
+  and point to private IPs (mitigates spoofed-response SSRF)
+- Removed unused auth_api permission from the add-on manifest
+
+### Changed
+- Main loop uses deadline-based pacing (steadier update rate regardless of
+  how long each TV/Hue round-trip takes)
+- Hue Entertainment session teardown is now explicit instead of relying on
+  garbage collection
+- TV HTTP client uses a separate connection timeout (2s) from the read
+  timeout (0.2s), so reconnecting after TV startup is more reliable
+- Removed ineffective HTTP/2 flag and unused urllib3 dependency; moved
+  mypy-only type stubs to dev requirements
+
 ## [2.0.3] - 2026-07-02
 
 ### Changed
